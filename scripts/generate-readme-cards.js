@@ -79,7 +79,7 @@ const parseQueryInput = (value) => {
   ) {
     try {
       queryString = new URL(trimmed, "http://localhost").search;
-    } catch (error) {
+    } catch {
       queryString = trimmed;
     }
   }
