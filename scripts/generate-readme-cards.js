@@ -6,6 +6,7 @@ import { parseArgs } from "node:util";
 
 import statsHandler from "../api/index.js";
 import topLangsHandler from "../api/top-langs.js";
+import { parseBoolean } from "../src/common/ops.js";
 import { renderStatsCard } from "../src/cards/stats.js";
 import { renderTopLanguages } from "../src/cards/top-languages.js";
 import { fetchStats } from "../src/fetchers/stats.js";
@@ -372,7 +373,8 @@ const run = async () => {
     ),
   };
 
-  const dryRun = Boolean(values["dry-run"] || process.env.DRY_RUN);
+  const dryRunFlag = values["dry-run"] ?? process.env.DRY_RUN;
+  const dryRun = parseBoolean(dryRunFlag) ?? false;
 
   const { statsPath, topLangsPath } = await generateReadmeCards({
     username,

@@ -18,7 +18,7 @@ Optional environment variables:
 - `TOP_LANGS_QUERY`: Top languages query string or URL (uses the API handler).
 - `STATS_OPTIONS`: JSON string for stats card options.
 - `TOP_LANGS_OPTIONS`: JSON string for top languages card options.
-- `DRY_RUN`: Set to any value to skip API calls and use sample data.
+- `DRY_RUN`: Set to `true` to skip API calls and use sample data (`false` disables it).
 
 Smoke test:
 ```
