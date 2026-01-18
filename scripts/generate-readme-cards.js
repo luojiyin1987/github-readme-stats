@@ -352,8 +352,7 @@ const run = async () => {
     return;
   }
 
-  const username =
-    values.username || process.env.GITHUB_USERNAME || process.env.USERNAME;
+  const username = values.username || process.env.GITHUB_USERNAME;
   const outputDir =
     values["output-dir"] || process.env.OUTPUT_DIR || "generated";
   const statsQuery = parseQueryInput(
