@@ -36,6 +36,9 @@ jobs:
           TOP_LANGS_QUERY: "/api/top-langs/?username=${{ github.repository_owner }}&langs_count=10&title_color=0891b2&text_color=ffffff&icon_color=0891b2&bg_color=1c1917&hide_border=true&locale=en&custom_title=Top%20Languages"
         run: node scripts/generate-readme-cards
 
+      - name: Debug generated output
+        run: ls -la generated || true
+
       - name: Commit and force push to readme-cards branch
         run: |
           OUTPUT_DIR="generated"
