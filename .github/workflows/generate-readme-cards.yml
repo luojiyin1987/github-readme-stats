@@ -1,0 +1,51 @@
+name: Generate Readme Cards
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: generate-readme-cards
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate SVGs
+        env:
+          PAT_1: ${{ secrets.PAT_1 || github.token }}
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+          OUTPUT_DIR: generated
+          STATS_QUERY: "/api?username=${{ github.repository_owner }}&show_icons=true&hide=&count_private=true&title_color=0891b2&text_color=ffffff&icon_color=0891b2&bg_color=1c1917&hide_border=true"
+          TOP_LANGS_QUERY: "/api/top-langs/?username=${{ github.repository_owner }}&langs_count=10&title_color=0891b2&text_color=ffffff&icon_color=0891b2&bg_color=1c1917&hide_border=true&locale=en&custom_title=Top%20Languages"
+        run: node scripts/generate-readme-cards
+
+      - name: Commit and force push to readme-cards branch
+        run: |
+          OUTPUT_DIR="generated"
+          if ! ls "${OUTPUT_DIR}"/*.svg >/dev/null 2>&1; then
+            echo "Missing generated SVGs in ${OUTPUT_DIR}"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan readme-cards-tmp
+          git add -f "${OUTPUT_DIR}"
+          git commit -m "chore: update readme cards"
+          git push --force origin HEAD:readme-cards
