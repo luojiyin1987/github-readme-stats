@@ -845,6 +845,39 @@ Then embed from your profile README:
 
 See more options and examples in the [GitHub Readme Stats Action README](https://github.com/readme-tools/github-readme-stats-action#readme).
 
+### Generate SVGs with a local workflow
+
+If you want to avoid public rate limits, you can run a workflow in your own fork/repo that generates SVGs and pushes them to a branch (for example `readme-cards`). This repo already includes a script and workflow:
+
+- Workflow: `/.github/workflows/generate-readme-cards.yml`
+- Script: `/scripts/generate-readme-cards.js`
+
+Key configuration:
+- `PAT_1` secret: GitHub token for API calls (required for private stats; `GITHUB_TOKEN` is public-only).
+- `STATS_QUERY` and `TOP_LANGS_QUERY`: Query strings (or URLs) matching the API parameters you want.
+- `OUTPUT_DIR`: Directory to write SVGs (default `generated`).
+
+Notes:
+- The workflow must live on the default branch to run on schedule or via `workflow_dispatch`.
+- Set `Settings → Actions → General → Workflow permissions` to **Read and write** so the job can push to `readme-cards`.
+
+Example snippet:
+
+```yaml
+env:
+  PAT_1: ${{ secrets.PAT_1 || github.token }}
+  OUTPUT_DIR: generated
+  STATS_QUERY: "/api?username=${{ github.repository_owner }}&show_icons=true&hide_border=true"
+  TOP_LANGS_QUERY: "/api/top-langs/?username=${{ github.repository_owner }}&langs_count=8&hide_border=true"
+```
+
+Embed the generated files from the `readme-cards` branch:
+
+```md
+![Stats](https://raw.githubusercontent.com/<username>/<repo>/readme-cards/generated/<username>-stats.svg)
+![Top Langs](https://raw.githubusercontent.com/<username>/<repo>/readme-cards/generated/<username>-top-langs.svg)
+```
+
 ## Self-hosted (Vercel/Other)
 
 Running your own instance avoids public rate limits and gives you full control over caching, tokens, and private stats.
