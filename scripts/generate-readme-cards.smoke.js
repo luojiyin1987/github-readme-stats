@@ -20,6 +20,6 @@ const run = async () => {
 };
 
 run().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
+  console.error(error);
   process.exitCode = 1;
 });

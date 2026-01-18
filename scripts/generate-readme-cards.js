@@ -80,7 +80,6 @@ const parseQueryInput = (value) => {
     try {
       queryString = new URL(trimmed, "http://localhost").search;
     } catch (error) {
-      error;
       queryString = trimmed;
     }
   }
@@ -149,7 +148,9 @@ const buildStatsFetchOptions = (options) => {
     includeDiscussions: show.includes("discussions_started"),
     includeDiscussionsAnswers: show.includes("discussions_answered"),
     commitsYear:
-      options.commits_year === undefined ? undefined : Number(options.commits_year),
+      options.commits_year === undefined
+        ? undefined
+        : Number(options.commits_year),
   };
 };
 
@@ -239,9 +240,7 @@ export const generateReadmeCards = async ({
   const resolvedStatsQuery = parseQueryInput(statsQuery);
   const resolvedTopLangsQuery = parseQueryInput(topLangsQuery);
   const resolvedUsername =
-    username ||
-    resolvedStatsQuery?.username ||
-    resolvedTopLangsQuery?.username;
+    username || resolvedStatsQuery?.username || resolvedTopLangsQuery?.username;
   const hasStatsQuery =
     resolvedStatsQuery && Object.keys(resolvedStatsQuery).length > 0;
   const hasTopLangsQuery =
@@ -355,7 +354,8 @@ const run = async () => {
 
   const username =
     values.username || process.env.GITHUB_USERNAME || process.env.USERNAME;
-  const outputDir = values["output-dir"] || process.env.OUTPUT_DIR || "generated";
+  const outputDir =
+    values["output-dir"] || process.env.OUTPUT_DIR || "generated";
   const statsQuery = parseQueryInput(
     values["stats-query"] || process.env.STATS_QUERY,
   );
@@ -387,9 +387,7 @@ const run = async () => {
     dryRun,
   });
 
-  process.stdout.write(
-    `Wrote SVGs:\n- ${statsPath}\n- ${topLangsPath}\n`,
-  );
+  process.stdout.write(`Wrote SVGs:\n- ${statsPath}\n- ${topLangsPath}\n`);
 };
 
 const isDirectRun =
