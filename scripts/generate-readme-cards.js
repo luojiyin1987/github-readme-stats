@@ -212,11 +212,14 @@ const getSampleTopLangs = () => {
 };
 
 const ensureToken = ({ dryRun }) => {
-  if (!dryRun && !process.env.PAT_1 && process.env.GITHUB_TOKEN) {
-    process.env.PAT_1 = process.env.GITHUB_TOKEN;
+  if (dryRun) {
+    return;
   }
-  if (!dryRun && !process.env.PAT_1) {
-    throw new Error("Missing PAT_1 (or GITHUB_TOKEN) for GitHub API access.");
+  process.env.PAT_1 = process.env.PAT_1 || process.env.GITHUB_TOKEN;
+  if (!process.env.PAT_1) {
+    throw new Error(
+      "Missing GitHub token. Set GITHUB_TOKEN or PAT_1 environment variable.",
+    );
   }
 };
 
