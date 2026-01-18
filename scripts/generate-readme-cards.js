@@ -394,8 +394,10 @@ const run = async () => {
   process.stdout.write(`Wrote SVGs:\n- ${statsPath}\n- ${topLangsPath}\n`);
 };
 
+const modulePath = fileURLToPath(import.meta.url);
+const argvPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
 const isDirectRun =
-  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+  argvPath === modulePath || argvPath === modulePath.replace(/\.js$/, "");
 
 if (isDirectRun) {
   run().catch((error) => {

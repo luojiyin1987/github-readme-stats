@@ -6,7 +6,7 @@ Generate static stats and top languages SVGs using the local card renderer.
 
 Usage:
 ```
-node scripts/generate-readme-cards --username luojiyin1987
+  node scripts/generate-readme-cards.js --username luojiyin1987
 ```
 
 Optional environment variables:
