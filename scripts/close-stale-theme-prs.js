@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import { debug, setFailed } from "@actions/core";
-import github from "@actions/github";
+import * as github from "@actions/github";
 import { RequestError } from "@octokit/request-error";
 import { getGithubToken, getRepoInfo } from "./helpers.js";
 

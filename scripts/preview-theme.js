@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import { debug, setFailed } from "@actions/core";
-import github from "@actions/github";
+import * as github from "@actions/github";
 import ColorContrastChecker from "color-contrast-checker";
 import { info } from "console";
 import Hjson from "hjson";
