@@ -241,6 +241,7 @@ const statsFetcher = async ({
     login: username,
   });
   const contributedToErrors = contributedToRes.data.errors;
+  stats.data.data.user.repositoriesContributedTo = null;
   if (contributedToErrors) {
     const onlyResourceLimitErrors = contributedToErrors.every(
       (error) => error.type === "RESOURCE_LIMITS_EXCEEDED",
@@ -248,10 +249,9 @@ const statsFetcher = async ({
     if (!onlyResourceLimitErrors) {
       return contributedToRes;
     }
-    stats.data.data.user.repositoriesContributedTo = null;
   } else {
     stats.data.data.user.repositoriesContributedTo =
-      contributedToRes.data.data.user.repositoriesContributedTo;
+      contributedToRes.data.data.user?.repositoriesContributedTo ?? null;
   }
 
   const reviewsRes = await retryer(reviewsFetcher, {
