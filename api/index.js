@@ -85,6 +85,35 @@ export default async (req, res) => {
 
   try {
     const showStats = parseArray(show);
+
+    let commitsYear;
+    if (commits_year !== undefined && commits_year !== "") {
+      const isValidYear =
+        typeof commits_year === "string" && /^\d{4}$/.test(commits_year);
+      const parsedYear = isValidYear ? Number(commits_year) : NaN;
+      const currentYear = new Date().getUTCFullYear();
+      if (
+        !Number.isInteger(parsedYear) ||
+        parsedYear < 2008 ||
+        parsedYear > currentYear
+      ) {
+        return res.send(
+          renderError({
+            message: "Something went wrong",
+            secondaryMessage: "Invalid commits_year parameter",
+            renderOptions: {
+              title_color,
+              text_color,
+              bg_color,
+              border_color,
+              theme,
+            },
+          }),
+        );
+      }
+      commitsYear = parsedYear;
+    }
+
     const stats = await fetchStats(
       username,
       parseBoolean(include_all_commits),
@@ -93,7 +122,7 @@ export default async (req, res) => {
         showStats.includes("prs_merged_percentage"),
       showStats.includes("discussions_started"),
       showStats.includes("discussions_answered"),
-      parseInt(commits_year, 10),
+      commitsYear,
     );
     const cacheSeconds = resolveCacheSeconds({
       requested: parseInt(cache_seconds, 10),
@@ -113,7 +142,7 @@ export default async (req, res) => {
         card_width: parseInt(card_width, 10),
         hide_rank: parseBoolean(hide_rank),
         include_all_commits: parseBoolean(include_all_commits),
-        commits_year: parseInt(commits_year, 10),
+        commits_year: commitsYear,
         line_height,
         title_color,
         ring_color,

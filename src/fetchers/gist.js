@@ -98,6 +98,9 @@ const fetchGist = async (id) => {
     throw new Error("Gist not found");
   }
   const data = res.data.data.viewer.gist;
+  if (!data.files || !data.files.length) {
+    throw new Error("Gist has no files");
+  }
   return {
     name: data.files[Object.keys(data.files)[0]].name,
     nameWithOwner: `${data.owner.login}/${

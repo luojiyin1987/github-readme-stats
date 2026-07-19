@@ -125,6 +125,62 @@ describe("Test /api/", () => {
     );
   });
 
+  it("should render error card on invalid commits_year without calling GitHub", async () => {
+    const { req, res } = faker({ commits_year: "abc" }, data_stats);
+
+    await api(req, res);
+
+    expect(mock.history.post).toHaveLength(0);
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Invalid commits_year parameter",
+        renderOptions: {
+          title_color: undefined,
+          text_color: undefined,
+          bg_color: undefined,
+          border_color: undefined,
+          theme: undefined,
+        },
+      }),
+    );
+  });
+
+  it("should fetch stats with a valid commits_year", async () => {
+    const { req, res } = faker({ commits_year: "2020" }, data_stats);
+
+    await api(req, res);
+
+    expect(res.send).toHaveBeenCalled();
+    const sent = res.send.mock.calls[0][0];
+    expect(sent).toContain("2020");
+    expect(sent).toContain("<svg");
+  });
+
+  it.each(["abc", "2020abc", "2020.5", "2007", "9999", "02020", "2020年"])(
+    "should reject invalid commits_year %s without calling GitHub",
+    async (commitsYear) => {
+      const { req, res } = faker({ commits_year: commitsYear }, data_stats);
+
+      await api(req, res);
+
+      expect(mock.history.post).toHaveLength(0);
+      expect(res.send).toHaveBeenCalledWith(
+        renderError({
+          message: "Something went wrong",
+          secondaryMessage: "Invalid commits_year parameter",
+          renderOptions: {
+            title_color: undefined,
+            text_color: undefined,
+            bg_color: undefined,
+            border_color: undefined,
+            theme: undefined,
+          },
+        }),
+      );
+    },
+  );
+
   it("should render error card on error", async () => {
     const { req, res } = faker({}, error);
 
