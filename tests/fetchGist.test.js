@@ -68,6 +68,24 @@ const gist_errors_data = {
   ],
 };
 
+const gist_no_files_data = {
+  data: {
+    viewer: {
+      gist: {
+        description: "Empty gist",
+        owner: {
+          login: "Yizack",
+        },
+        stargazerCount: 0,
+        forks: {
+          totalCount: 0,
+        },
+        files: [],
+      },
+    },
+  },
+};
+
 const mock = new MockAdapter(axios);
 
 afterEach(() => {
@@ -112,6 +130,16 @@ describe("Test fetchGist", () => {
   it("should throw error if id is not provided", async () => {
     await expect(fetchGist()).rejects.toThrow(
       'Missing params "id" make sure you pass the parameters in URL',
+    );
+  });
+
+  it("should throw error if gist has no files", async () => {
+    mock
+      .onPost("https://api.github.com/graphql")
+      .reply(200, gist_no_files_data);
+
+    await expect(fetchGist("bbfce31e0217a3689c8d961a356cb10d")).rejects.toThrow(
+      "Gist has no files",
     );
   });
 });
