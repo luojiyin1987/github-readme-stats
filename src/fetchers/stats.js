@@ -240,7 +240,17 @@ const statsFetcher = async ({
   const contributedToRes = await retryer(contributedToFetcher, {
     login: username,
   });
-  const contributedToErrors = contributedToRes.data.errors;
+
+  if (contributedToRes.status < 200 || contributedToRes.status >= 300) {
+    throw new CustomError(
+      contributedToRes.data?.message ||
+        "Could not fetch repositories contributed to.",
+      CustomError.GRAPHQL_ERROR,
+    );
+  }
+
+  stats.data.data.user.repositoriesContributedTo = null;
+  const contributedToErrors = contributedToRes.data?.errors;
   if (contributedToErrors) {
     const onlyResourceLimitErrors = contributedToErrors.every(
       (error) => error.type === "RESOURCE_LIMITS_EXCEEDED",
@@ -248,10 +258,9 @@ const statsFetcher = async ({
     if (!onlyResourceLimitErrors) {
       return contributedToRes;
     }
-    stats.data.data.user.repositoriesContributedTo = null;
   } else {
     stats.data.data.user.repositoriesContributedTo =
-      contributedToRes.data.data.user.repositoriesContributedTo;
+      contributedToRes.data?.data?.user?.repositoriesContributedTo ?? null;
   }
 
   const reviewsRes = await retryer(reviewsFetcher, {

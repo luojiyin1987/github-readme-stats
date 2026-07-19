@@ -72,6 +72,12 @@ const data_contributed_to_other_error = {
   ],
 };
 
+const data_contributed_to_empty_user = {
+  data: {
+    user: null,
+  },
+};
+
 const data_reviews = {
   data: {
     user: {
@@ -310,6 +316,63 @@ describe("Test fetchStats", () => {
     await expect(fetchStats("anuraghazra")).rejects.toThrow(
       "Something else went wrong.",
     );
+  });
+
+  it("should return null contributedTo when contributed-to query returns empty user", async () => {
+    mock.reset();
+    mock
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_stats)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_repo_page1)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_contributed_to_empty_user)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_reviews);
+
+    let stats = await fetchStats("anuraghazra");
+    const rank = calculateRank({
+      all_commits: false,
+      commits: 100,
+      prs: 300,
+      reviews: 50,
+      issues: 200,
+      repos: 5,
+      stars: 300,
+      followers: 100,
+    });
+
+    expect(stats).toStrictEqual({
+      contributedTo: null,
+      name: "Anurag Hazra",
+      totalCommits: 100,
+      totalIssues: 200,
+      totalPRs: 300,
+      totalPRsMerged: 0,
+      mergedPRsPercentage: 0,
+      totalReviews: 50,
+      totalStars: 300,
+      totalDiscussionsStarted: 0,
+      totalDiscussionsAnswered: 0,
+      rank,
+    });
+  });
+
+  it("should fail when contributed-to request returns HTTP 500", async () => {
+    mock.reset();
+    mock
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_stats)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_repo_page1)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(500, { message: "Internal Server Error" });
+
+    await expect(fetchStats("anuraghazra")).rejects.toThrow(
+      "Internal Server Error",
+    );
+
+    expect(mock.history.post).toHaveLength(3);
   });
 
   it("should fetch total commits", async () => {
