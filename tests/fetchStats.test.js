@@ -358,6 +358,23 @@ describe("Test fetchStats", () => {
     });
   });
 
+  it("should fail when contributed-to request returns HTTP 500", async () => {
+    mock.reset();
+    mock
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_stats)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_repo_page1)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(500, { message: "Internal Server Error" });
+
+    await expect(fetchStats("anuraghazra")).rejects.toThrow(
+      "Internal Server Error",
+    );
+
+    expect(mock.history.post).toHaveLength(3);
+  });
+
   it("should fetch total commits", async () => {
     mock
       .onGet("https://api.github.com/search/commits?q=author:anuraghazra")
