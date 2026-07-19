@@ -146,6 +146,37 @@ describe("WakaTime fetcher", () => {
       fetchWakatimeStats({ username: "anuraghazra" }),
     ).rejects.toThrow("Could not fetch WakaTime stats for 'anuraghazra'");
   });
+
+  it.each([
+    "127.0.0.1",
+    "127.0.0.1:22",
+    "10.0.0.5",
+    "[::1]",
+    "localhost",
+    "internal.corp.internal",
+    "evil.com#@internal",
+    "user:pass@wakatime.com",
+  ])("should reject SSRF-prone api_domain %s", async (apiDomain) => {
+    await expect(
+      fetchWakatimeStats({ username: "anuraghazra", api_domain: apiDomain }),
+    ).rejects.toThrow("Invalid WakaTime api_domain");
+
+    expect(mock.history.get).toHaveLength(0);
+  });
+
+  it("should allow a non-default registered-name api_domain", async () => {
+    mock
+      .onGet(/https:\/\/stats.wakatime.com\/api/)
+      .reply(200, { data: wakaTimeData });
+
+    const stats = await fetchWakatimeStats({
+      username: "anuraghazra",
+      api_domain: "stats.wakatime.com",
+    });
+
+    expect(stats).toBeDefined();
+    expect(mock.history.get).toHaveLength(1);
+  });
 });
 
 export { wakaTimeData };
