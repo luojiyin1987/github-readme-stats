@@ -402,12 +402,14 @@ const renderStatsCard = (stats, options = {}) => {
     };
   }
 
-  STATS.contribs = {
-    icon: icons.contribs,
-    label: i18n.t("statcard.contribs"),
-    value: contributedTo,
-    id: "contribs",
-  };
+  if (typeof contributedTo === "number") {
+    STATS.contribs = {
+      icon: icons.contribs,
+      label: i18n.t("statcard.contribs"),
+      value: contributedTo,
+      id: "contribs",
+    };
+  }
 
   // @ts-ignore
   const isLongLocale = locale ? LONG_LOCALES.includes(locale) : false;

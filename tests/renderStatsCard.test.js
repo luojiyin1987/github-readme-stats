@@ -469,4 +469,13 @@ describe("Test renderStatsCard", () => {
       ),
     );
   });
+
+  it("should omit contributed-to stat when unavailable", () => {
+    document.body.innerHTML = renderStatsCard({
+      ...stats,
+      contributedTo: null,
+    });
+
+    expect(queryByTestId(document.body, "contribs")).not.toBeInTheDocument();
+  });
 });

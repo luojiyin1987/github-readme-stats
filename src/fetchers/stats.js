@@ -38,19 +38,38 @@ const GRAPHQL_REPOS_QUERY = `
   }
 `;
 
+// GitHub's GraphQL API enforces a per-query resource budget that the combined
+// stats query now exceeds, so contribution/count stats, reviews, repositories,
+// and repositoriesContributedTo are fetched in separate requests. Reviews need
+// their own request too: combining them with commit contributions can still
+// exceed the budget for accounts with a large contribution history.
+const GRAPHQL_CONTRIBUTED_TO_QUERY = `
+  query userInfo($login: String!) {
+    user(login: $login) {
+      repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
+        totalCount
+      }
+    }
+  }
+`;
+
+const GRAPHQL_REVIEWS_QUERY = `
+  query userInfo($login: String!) {
+    user(login: $login) {
+      contributions: contributionsCollection {
+        totalPullRequestReviewContributions
+      }
+    }
+  }
+`;
+
 const GRAPHQL_STATS_QUERY = `
-  query userInfo($login: String!, $after: String, $includeMergedPullRequests: Boolean!, $includeDiscussions: Boolean!, $includeDiscussionsAnswers: Boolean!, $startTime: DateTime = null) {
+  query userInfo($login: String!, $includeMergedPullRequests: Boolean!, $includeDiscussions: Boolean!, $includeDiscussionsAnswers: Boolean!, $startTime: DateTime = null) {
     user(login: $login) {
       name
       login
-      commits: contributionsCollection (from: $startTime) {
-        totalCommitContributions,
-      }
-      reviews: contributionsCollection {
-        totalPullRequestReviewContributions
-      }
-      repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
-        totalCount
+      contributions: contributionsCollection (from: $startTime) {
+        totalCommitContributions
       }
       pullRequests(first: 1) {
         totalCount
@@ -73,7 +92,6 @@ const GRAPHQL_STATS_QUERY = `
       repositoryDiscussionComments(onlyAnswers: true) @include(if: $includeDiscussionsAnswers) {
         totalCount
       }
-      ${GRAPHQL_REPOS_FIELD}
     }
   }
 `;
@@ -81,15 +99,71 @@ const GRAPHQL_STATS_QUERY = `
 /**
  * Stats fetcher object.
  *
- * @param {object & { after: string | null }} variables Fetcher variables.
+ * @param {object} variables Fetcher variables.
  * @param {string} token GitHub token.
  * @returns {Promise<import('axios').AxiosResponse>} Axios response.
  */
 const fetcher = (variables, token) => {
-  const query = variables.after ? GRAPHQL_REPOS_QUERY : GRAPHQL_STATS_QUERY;
   return request(
     {
-      query,
+      query: GRAPHQL_STATS_QUERY,
+      variables,
+    },
+    {
+      Authorization: `bearer ${token}`,
+    },
+  );
+};
+
+/**
+ * Repositories fetcher object.
+ *
+ * @param {object & { after: string | null }} variables Fetcher variables.
+ * @param {string} token GitHub token.
+ * @returns {Promise<import('axios').AxiosResponse>} Axios response.
+ */
+const reposFetcher = (variables, token) => {
+  return request(
+    {
+      query: GRAPHQL_REPOS_QUERY,
+      variables,
+    },
+    {
+      Authorization: `bearer ${token}`,
+    },
+  );
+};
+
+/**
+ * Contributed-to fetcher object.
+ *
+ * @param {object} variables Fetcher variables.
+ * @param {string} token GitHub token.
+ * @returns {Promise<import('axios').AxiosResponse>} Axios response.
+ */
+const contributedToFetcher = (variables, token) => {
+  return request(
+    {
+      query: GRAPHQL_CONTRIBUTED_TO_QUERY,
+      variables,
+    },
+    {
+      Authorization: `bearer ${token}`,
+    },
+  );
+};
+
+/**
+ * Reviews fetcher object.
+ *
+ * @param {object} variables Fetcher variables.
+ * @param {string} token GitHub token.
+ * @returns {Promise<import('axios').AxiosResponse>} Axios response.
+ */
+const reviewsFetcher = (variables, token) => {
+  return request(
+    {
+      query: GRAPHQL_REVIEWS_QUERY,
       variables,
     },
     {
@@ -118,30 +192,37 @@ const statsFetcher = async ({
   includeDiscussionsAnswers,
   startTime,
 }) => {
-  let stats;
+  const stats = await retryer(fetcher, {
+    login: username,
+    includeMergedPullRequests,
+    includeDiscussions,
+    includeDiscussionsAnswers,
+    startTime,
+  });
+  if (stats.data.errors) {
+    return stats;
+  }
+
+  let repositories = null;
   let hasNextPage = true;
   let endCursor = null;
   while (hasNextPage) {
-    const variables = {
+    const res = await retryer(reposFetcher, {
       login: username,
       first: 100,
       after: endCursor,
-      includeMergedPullRequests,
-      includeDiscussions,
-      includeDiscussionsAnswers,
-      startTime,
-    };
-    let res = await retryer(fetcher, variables);
+    });
     if (res.data.errors) {
       return res;
     }
 
-    // Store stats data.
-    const repoNodes = res.data.data.user.repositories.nodes;
-    if (stats) {
-      stats.data.data.user.repositories.nodes.push(...repoNodes);
+    // Store repositories data.
+    const repoPage = res.data.data.user.repositories;
+    const repoNodes = repoPage.nodes;
+    if (repositories) {
+      repositories.nodes.push(...repoNodes);
     } else {
-      stats = res;
+      repositories = repoPage;
     }
 
     // Disable multi page fetching on public Vercel instance due to rate limits.
@@ -151,9 +232,36 @@ const statsFetcher = async ({
     hasNextPage =
       process.env.FETCH_MULTI_PAGE_STARS === "true" &&
       repoNodes.length === repoNodesWithStars.length &&
-      res.data.data.user.repositories.pageInfo.hasNextPage;
-    endCursor = res.data.data.user.repositories.pageInfo.endCursor;
+      repoPage.pageInfo.hasNextPage;
+    endCursor = repoPage.pageInfo.endCursor;
   }
+  stats.data.data.user.repositories = repositories;
+
+  const contributedToRes = await retryer(contributedToFetcher, {
+    login: username,
+  });
+  const contributedToErrors = contributedToRes.data.errors;
+  if (contributedToErrors) {
+    const onlyResourceLimitErrors = contributedToErrors.every(
+      (error) => error.type === "RESOURCE_LIMITS_EXCEEDED",
+    );
+    if (!onlyResourceLimitErrors) {
+      return contributedToRes;
+    }
+    stats.data.data.user.repositoriesContributedTo = null;
+  } else {
+    stats.data.data.user.repositoriesContributedTo =
+      contributedToRes.data.data.user.repositoriesContributedTo;
+  }
+
+  const reviewsRes = await retryer(reviewsFetcher, {
+    login: username,
+  });
+  if (reviewsRes.data.errors) {
+    return reviewsRes;
+  }
+  stats.data.data.user.contributions.totalPullRequestReviewContributions =
+    reviewsRes.data.data.user.contributions.totalPullRequestReviewContributions;
 
   return stats;
 };
@@ -248,7 +356,7 @@ const fetchStats = async (
     totalStars: 0,
     totalDiscussionsStarted: 0,
     totalDiscussionsAnswered: 0,
-    contributedTo: 0,
+    contributedTo: null,
     rank: { level: "C", percentile: 100 },
   };
 
@@ -289,7 +397,7 @@ const fetchStats = async (
   if (include_all_commits) {
     stats.totalCommits = await totalCommitsFetcher(username);
   } else {
-    stats.totalCommits = user.commits.totalCommitContributions;
+    stats.totalCommits = user.contributions.totalCommitContributions;
   }
 
   stats.totalPRs = user.pullRequests.totalCount;
@@ -299,7 +407,7 @@ const fetchStats = async (
       (user.mergedPullRequests.totalCount / user.pullRequests.totalCount) *
         100 || 0;
   }
-  stats.totalReviews = user.reviews.totalPullRequestReviewContributions;
+  stats.totalReviews = user.contributions.totalPullRequestReviewContributions;
   stats.totalIssues = user.openIssues.totalCount + user.closedIssues.totalCount;
   if (include_discussions) {
     stats.totalDiscussionsStarted = user.repositoryDiscussions.totalCount;
@@ -308,7 +416,7 @@ const fetchStats = async (
     stats.totalDiscussionsAnswered =
       user.repositoryDiscussionComments.totalCount;
   }
-  stats.contributedTo = user.repositoriesContributedTo.totalCount;
+  stats.contributedTo = user.repositoriesContributedTo?.totalCount ?? null;
 
   // Retrieve stars while filtering out repositories to be hidden.
   const allExcludedRepos = [...exclude_repo, ...excludeRepositories];
