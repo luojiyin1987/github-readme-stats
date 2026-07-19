@@ -27,7 +27,7 @@ const fetchWakatimeStats = async ({ username, api_domain }) => {
     if (status >= 200 && status <= 299) {
       throw err;
     }
-    if (status) {
+    if (status === 404) {
       throw new CustomError(
         `Could not resolve to a User with the login of '${username}'`,
         "WAKATIME_USER_NOT_FOUND",
