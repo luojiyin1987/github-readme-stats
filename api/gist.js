@@ -11,10 +11,12 @@ import {
   setErrorCacheHeaders,
 } from "../src/common/cache.js";
 import { guardAccess } from "../src/common/access.js";
+import { CustomError } from "../src/common/error.js";
 import {
   MissingParamError,
   retrieveSecondaryMessage,
 } from "../src/common/error.js";
+import { validateGistId } from "../src/common/validate.js";
 import { parseBoolean } from "../src/common/ops.js";
 
 // @ts-ignore
@@ -50,6 +52,26 @@ export default async (req, res) => {
   });
   if (!access.isPassed) {
     return access.result;
+  }
+
+  try {
+    validateGistId(id);
+  } catch (err) {
+    return res.send(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage:
+          err instanceof CustomError ? err.message : "Invalid gist ID",
+        renderOptions: {
+          title_color,
+          text_color,
+          bg_color,
+          border_color,
+          theme,
+          show_repo_link: false,
+        },
+      }),
+    );
   }
 
   if (locale && !isLocaleAvailable(locale)) {

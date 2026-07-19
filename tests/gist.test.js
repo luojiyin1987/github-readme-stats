@@ -127,8 +127,31 @@ describe("Test /api/gist", () => {
     expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
     expect(res.send).toHaveBeenCalledWith(
       renderError({
-        message: 'Missing params "id" make sure you pass the parameters in URL',
-        secondaryMessage: "/api/gist?id=GIST_ID",
+        message: "Something went wrong",
+        secondaryMessage: "Invalid gist ID provided.",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+  });
+
+  it("should render error if gist id is malformed", async () => {
+    const req = {
+      query: {
+        id: "../../etc/passwd",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await gist(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Invalid gist ID provided.",
         renderOptions: { show_repo_link: false },
       }),
     );

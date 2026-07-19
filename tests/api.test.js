@@ -181,6 +181,31 @@ describe("Test /api/", () => {
     },
   );
 
+  it.each(["anuraghazra!", "bad user", "../etc/passwd", ""])(
+    "should reject malformed username %s without calling GitHub",
+    async (username) => {
+      const { req, res } = faker({ username }, data_stats);
+
+      await api(req, res);
+
+      expect(mock.history.post).toHaveLength(0);
+      expect(res.send).toHaveBeenCalledWith(
+        renderError({
+          message: "Something went wrong",
+          secondaryMessage: "Invalid username provided.",
+          renderOptions: {
+            title_color: undefined,
+            text_color: undefined,
+            bg_color: undefined,
+            border_color: undefined,
+            theme: undefined,
+            show_repo_link: false,
+          },
+        }),
+      );
+    },
+  );
+
   it("should render error card on error", async () => {
     const { req, res } = faker({}, error);
 
