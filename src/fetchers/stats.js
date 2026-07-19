@@ -251,7 +251,7 @@ const statsFetcher = async ({
     }
   } else {
     stats.data.data.user.repositoriesContributedTo =
-      contributedToRes.data.data.user?.repositoriesContributedTo ?? null;
+      contributedToRes.data?.data?.user?.repositoriesContributedTo ?? null;
   }
 
   const reviewsRes = await retryer(reviewsFetcher, {
