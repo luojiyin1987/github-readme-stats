@@ -240,11 +240,19 @@ const statsFetcher = async ({
   const contributedToRes = await retryer(contributedToFetcher, {
     login: username,
   });
-  if (contributedToRes.data.errors) {
-    return contributedToRes;
+  const contributedToErrors = contributedToRes.data.errors;
+  if (contributedToErrors) {
+    const onlyResourceLimitErrors = contributedToErrors.every(
+      (error) => error.type === "RESOURCE_LIMITS_EXCEEDED",
+    );
+    if (!onlyResourceLimitErrors) {
+      return contributedToRes;
+    }
+    stats.data.data.user.repositoriesContributedTo = null;
+  } else {
+    stats.data.data.user.repositoriesContributedTo =
+      contributedToRes.data.data.user.repositoriesContributedTo;
   }
-  stats.data.data.user.repositoriesContributedTo =
-    contributedToRes.data.data.user.repositoriesContributedTo;
 
   const reviewsRes = await retryer(reviewsFetcher, {
     login: username,
@@ -348,7 +356,7 @@ const fetchStats = async (
     totalStars: 0,
     totalDiscussionsStarted: 0,
     totalDiscussionsAnswered: 0,
-    contributedTo: 0,
+    contributedTo: null,
     rank: { level: "C", percentile: 100 },
   };
 
@@ -408,7 +416,7 @@ const fetchStats = async (
     stats.totalDiscussionsAnswered =
       user.repositoryDiscussionComments.totalCount;
   }
-  stats.contributedTo = user.repositoriesContributedTo.totalCount;
+  stats.contributedTo = user.repositoriesContributedTo?.totalCount ?? null;
 
   // Retrieve stars while filtering out repositories to be hidden.
   const allExcludedRepos = [...exclude_repo, ...excludeRepositories];
