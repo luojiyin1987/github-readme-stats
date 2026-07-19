@@ -130,6 +130,22 @@ describe("WakaTime fetcher", () => {
       "Could not resolve to a User with the login of 'noone'",
     );
   });
+
+  it("should throw WAKATIME_FETCH_ERROR on server error (500)", async () => {
+    mock.onGet(/https:\/\/wakatime\.com\/api/).reply(500, { error: "boom" });
+
+    await expect(
+      fetchWakatimeStats({ username: "anuraghazra" }),
+    ).rejects.toThrow("Could not fetch WakaTime stats for 'anuraghazra'");
+  });
+
+  it("should throw WAKATIME_FETCH_ERROR on network failure (no response)", async () => {
+    mock.onGet(/https:\/\/wakatime\.com\/api/).networkError();
+
+    await expect(
+      fetchWakatimeStats({ username: "anuraghazra" }),
+    ).rejects.toThrow("Could not fetch WakaTime stats for 'anuraghazra'");
+  });
 });
 
 export { wakaTimeData };

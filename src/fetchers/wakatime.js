@@ -30,12 +30,12 @@ const fetchWakatimeStats = async ({ username, api_domain }) => {
     if (status === 404) {
       throw new CustomError(
         `Could not resolve to a User with the login of '${username}'`,
-        "WAKATIME_USER_NOT_FOUND",
+        CustomError.WAKATIME_USER_NOT_FOUND,
       );
     }
     throw new CustomError(
       `Could not fetch WakaTime stats for '${username}'`,
-      "WAKATIME_FETCH_ERROR",
+      CustomError.WAKATIME_FETCH_ERROR,
     );
   }
 };

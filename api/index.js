@@ -88,10 +88,12 @@ export default async (req, res) => {
 
     let commitsYear;
     if (commits_year !== undefined && commits_year !== "") {
-      const parsedYear = parseInt(commits_year, 10);
+      const isValidYear =
+        typeof commits_year === "string" && /^\d{4}$/.test(commits_year);
+      const parsedYear = isValidYear ? Number(commits_year) : NaN;
       const currentYear = new Date().getUTCFullYear();
       if (
-        Number.isNaN(parsedYear) ||
+        !Number.isInteger(parsedYear) ||
         parsedYear < 2008 ||
         parsedYear > currentYear
       ) {

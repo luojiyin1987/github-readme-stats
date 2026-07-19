@@ -157,6 +157,30 @@ describe("Test /api/", () => {
     expect(sent).toContain("<svg");
   });
 
+  it.each(["abc", "2020abc", "2020.5", "2007", "9999", "02020", "2020年"])(
+    "should reject invalid commits_year %s without calling GitHub",
+    async (commitsYear) => {
+      const { req, res } = faker({ commits_year: commitsYear }, data_stats);
+
+      await api(req, res);
+
+      expect(mock.history.post).toHaveLength(0);
+      expect(res.send).toHaveBeenCalledWith(
+        renderError({
+          message: "Something went wrong",
+          secondaryMessage: "Invalid commits_year parameter",
+          renderOptions: {
+            title_color: undefined,
+            text_color: undefined,
+            bg_color: undefined,
+            border_color: undefined,
+            theme: undefined,
+          },
+        }),
+      );
+    },
+  );
+
   it("should render error card on error", async () => {
     const { req, res } = faker({}, error);
 
