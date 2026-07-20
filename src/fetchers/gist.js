@@ -6,22 +6,23 @@ import { request } from "../common/http.js";
 
 const QUERY = `
 query gistInfo($gistName: String!) {
+    # The authenticated viewer's gist (gists are scoped to the viewer).
     viewer {
         gist(name: $gistName) {
             description
             owner {
-                login
+                login # gist owner handle
             }
-            stargazerCount
+            stargazerCount # stars on the gist
             forks {
-                totalCount
+                totalCount # number of forks
             }
             files {
-                name
+                name # file name
                 language {
-                    name
+                    name # detected language
                 }
-                size
+                size # file size in bytes
             }
         }
     }

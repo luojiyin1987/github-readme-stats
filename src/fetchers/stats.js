@@ -13,19 +13,26 @@ import { request } from "../common/http.js";
 
 dotenv.config();
 
-// GraphQL queries.
+// GitHub's GraphQL API enforces a per-query resource budget that the combined
+// stats query would exceed, so the data is fetched in several small requests
+// (see GRAPHQL_*_QUERY below). Each request reuses the same `userInfo` root
+// and selects only the fields it needs.
+
+// --- Repositories the user owns (used to count stars + top repos) ----------
+// Up to 100 repos the user owns (not forks), newest-starred first; paginated
+// via `after` so very active users are walked page by page.
 const GRAPHQL_REPOS_FIELD = `
   repositories(first: 100, ownerAffiliations: OWNER, orderBy: {direction: DESC, field: STARGAZERS}, after: $after) {
-    totalCount
+    totalCount # total number of owned repositories
     nodes {
-      name
+      name # repo name (used for star-count + exclusion rules)
       stargazers {
-        totalCount
+        totalCount # stars on this repo
       }
     }
     pageInfo {
-      hasNextPage
-      endCursor
+      hasNextPage # whether more pages of repos exist
+      endCursor # cursor to fetch the next page
     }
   }
 `;
@@ -38,14 +45,11 @@ const GRAPHQL_REPOS_QUERY = `
   }
 `;
 
-// GitHub's GraphQL API enforces a per-query resource budget that the combined
-// stats query now exceeds, so contribution/count stats, reviews, repositories,
-// and repositoriesContributedTo are fetched in separate requests. Reviews need
-// their own request too: combining them with commit contributions can still
-// exceed the budget for accounts with a large contribution history.
+// --- Repositories the user has contributed to (not necessarily owned) -------
 const GRAPHQL_CONTRIBUTED_TO_QUERY = `
   query userInfo($login: String!) {
     user(login: $login) {
+      # How many repos the user has contributed to (commits/issues/PRs/repo).
       repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
         totalCount
       }
@@ -53,42 +57,51 @@ const GRAPHQL_CONTRIBUTED_TO_QUERY = `
   }
 `;
 
+// --- Pull request reviews the user has made ---------------------------------
 const GRAPHQL_REVIEWS_QUERY = `
   query userInfo($login: String!) {
     user(login: $login) {
       contributions: contributionsCollection {
-        totalPullRequestReviewContributions
+        totalPullRequestReviewContributions # total PR reviews authored
       }
     }
   }
 `;
 
+// --- Core profile + contribution counts -------------------------------------
+// `$startTime` scopes commit contributions to the configured window. The
+// @include directives let callers toggle merged-PR / discussion stats without
+// sending extra fields (and without exceeding the resource budget).
 const GRAPHQL_STATS_QUERY = `
   query userInfo($login: String!, $includeMergedPullRequests: Boolean!, $includeDiscussions: Boolean!, $includeDiscussionsAnswers: Boolean!, $startTime: DateTime = null) {
     user(login: $login) {
-      name
-      login
+      name # display name (may be null)
+      login # GitHub handle
+      # Commits authored since $startTime.
       contributions: contributionsCollection (from: $startTime) {
         totalCommitContributions
       }
       pullRequests(first: 1) {
-        totalCount
+        totalCount # total PRs opened
       }
+      # Merged PRs (only when caller opts in).
       mergedPullRequests: pullRequests(states: MERGED) @include(if: $includeMergedPullRequests) {
         totalCount
       }
       openIssues: issues(states: OPEN) {
-        totalCount
+        totalCount # open issues authored
       }
       closedIssues: issues(states: CLOSED) {
-        totalCount
+        totalCount # closed issues authored
       }
       followers {
-        totalCount
+        totalCount # follower count
       }
+      # Discussions started (only when caller opts in).
       repositoryDiscussions @include(if: $includeDiscussions) {
         totalCount
       }
+      # Discussion answers (only when caller opts in).
       repositoryDiscussionComments(onlyAnswers: true) @include(if: $includeDiscussionsAnswers) {
         totalCount
       }
