@@ -6,7 +6,7 @@ import { request } from "../common/http.js";
 
 const QUERY = `
 query gistInfo($gistName: String!) {
-    # The authenticated viewer's gist (gists are scoped to the viewer).
+    # Fetch a gist by its ID/name (accessible public gists or those owned by the viewer).
     viewer {
         gist(name: $gistName) {
             description
