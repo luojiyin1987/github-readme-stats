@@ -163,14 +163,13 @@ const fetchTopLanguages = async (
 
   Object.keys(repoNodes).forEach((name) => {
     const score = Math.exp(logScores[name] - maxLogScore);
-    // Defensive guard: only a finite, positive score contributes to a valid
-    // comparison index. A non-finite score would otherwise surface as NaN in
-    // the rendered percentages.
-    repoNodes[name].size = Number.isFinite(score) && score > 0 ? score : 0;
+    // Keep the raw byte size intact (used by `stats_format=bytes`) and store
+    // the weighted comparison index separately.
+    repoNodes[name].score = Number.isFinite(score) && score > 0 ? score : 0;
   });
 
   const topLangs = Object.keys(repoNodes)
-    .sort((a, b) => repoNodes[b].size - repoNodes[a].size)
+    .sort((a, b) => repoNodes[b].score - repoNodes[a].score)
     .reduce((result, key) => {
       result[key] = repoNodes[key];
       return result;

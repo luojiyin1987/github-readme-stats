@@ -59,12 +59,14 @@ const langs = {
   HTML: {
     color: "#0f0",
     name: "HTML",
-    size: 1,
+    size: 250,
+    score: 1,
   },
   javascript: {
     color: "#0ff",
     name: "javascript",
-    size: 0.8,
+    size: 200,
+    score: 0.8,
   },
 };
 
@@ -266,6 +268,33 @@ describe("Test /api/top-langs", () => {
     // size_weight=0 -> Math.pow(size, 0) = 1 for every language, so a finite
     // card must render with no NaN/Infinity leaking into the SVG output.
     const svg = res.send.mock.calls[0][0];
+    expect(svg).not.toContain("NaN");
+    expect(svg).not.toContain("Infinity");
+  });
+
+  it("should display raw byte sizes in stats_format=bytes (P1-13)", async () => {
+    const req = {
+      query: {
+        username: "anuraghazra",
+        stats_format: "bytes",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+    mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+
+    await topLangs(req, res);
+
+    expect(mock.history.post).toHaveLength(1);
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    const svg = res.send.mock.calls[0][0];
+    // The raw byte size must be preserved (not overwritten by the normalized
+    // weighted score), so bytes mode shows real sizes.
+    expect(svg).toContain("250.0 B");
+    expect(svg).toContain("200.0 B");
+    expect(svg).not.toContain("undefined");
     expect(svg).not.toContain("NaN");
     expect(svg).not.toContain("Infinity");
   });

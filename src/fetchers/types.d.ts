@@ -43,6 +43,9 @@ export type Lang = {
   name: string;
   color: string;
   size: number;
+  count?: number;
+  /** Weighted comparison index (log-space, normalized to the max). */
+  score?: number;
 };
 
 export type TopLangData = Record<string, Lang>;

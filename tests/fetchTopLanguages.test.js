@@ -64,21 +64,23 @@ describe("FetchTopLanguages", () => {
   it("should fetch correct language data while using the new calculation", async () => {
     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
 
-    // Scores are computed in log space and normalized to the max (1.0), so
-    // equal raw sizes/counts yield equal normalized scores.
+    // Raw byte `size` is preserved; `score` is the log-space index normalized
+    // to the max (1.0). Equal raw sizes/counts yield equal scores.
     let repo = await fetchTopLanguages("anuraghazra", [], 0.5, 0.5);
     expect(repo).toStrictEqual({
       HTML: {
         color: "#0f0",
         count: 2,
         name: "HTML",
-        size: 1,
+        size: 200,
+        score: 1,
       },
       javascript: {
         color: "#0ff",
         count: 2,
         name: "javascript",
-        size: 1,
+        size: 200,
+        score: 1,
       },
     });
   });
@@ -87,38 +89,40 @@ describe("FetchTopLanguages", () => {
     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
 
     // Default weights (size_weight=1, count_weight=0): HTML keeps 100 bytes
-    // (excluded repo), javascript keeps 200 bytes -> normalized to 0.5 / 1.0.
+    // (excluded repo), javascript keeps 200 bytes; scores normalize to 0.5 / 1.0.
     let repo = await fetchTopLanguages("anuraghazra", ["test-repo-1"]);
-    // HTML keeps 100 bytes (excluded repo), javascript keeps 200 bytes, so the
-    // log-space scores normalize to ~0.5 / 1.0.
     expect(repo.HTML.color).toBe("#0f0");
     expect(repo.HTML.count).toBe(1);
     expect(repo.HTML.name).toBe("HTML");
-    expect(repo.HTML.size).toBeCloseTo(0.5, 10);
+    expect(repo.HTML.size).toBe(100);
+    expect(repo.HTML.score).toBeCloseTo(0.5, 10);
     expect(repo.javascript.color).toBe("#0ff");
     expect(repo.javascript.count).toBe(2);
     expect(repo.javascript.name).toBe("javascript");
-    expect(repo.javascript.size).toBeCloseTo(1, 10);
+    expect(repo.javascript.size).toBe(200);
+    expect(repo.javascript.score).toBeCloseTo(1, 10);
   });
 
   it("should fetch correct language data while using the old calculation", async () => {
     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
 
     // size_weight=1, count_weight=0: both languages have equal total bytes,
-    // so both normalize to 1.0.
+    // so raw sizes stay 200/200 and scores normalize to 1.0.
     let repo = await fetchTopLanguages("anuraghazra", [], 1, 0);
     expect(repo).toStrictEqual({
       HTML: {
         color: "#0f0",
         count: 2,
         name: "HTML",
-        size: 1,
+        size: 200,
+        score: 1,
       },
       javascript: {
         color: "#0ff",
         count: 2,
         name: "javascript",
-        size: 1,
+        size: 200,
+        score: 1,
       },
     });
   });
@@ -127,20 +131,22 @@ describe("FetchTopLanguages", () => {
     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
 
     // count_weight=1, size_weight=0: both languages appear in 2 repos, so
-    // both normalize to 1.0.
+    // raw sizes stay 200/200 and scores normalize to 1.0.
     let repo = await fetchTopLanguages("anuraghazra", [], 0, 1);
     expect(repo).toStrictEqual({
       HTML: {
         color: "#0f0",
         count: 2,
         name: "HTML",
-        size: 1,
+        size: 200,
+        score: 1,
       },
       javascript: {
         color: "#0ff",
         count: 2,
         name: "javascript",
-        size: 1,
+        size: 200,
+        score: 1,
       },
     });
   });
