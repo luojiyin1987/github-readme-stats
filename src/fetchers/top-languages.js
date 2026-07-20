@@ -141,11 +141,32 @@ const fetchTopLanguages = async (
       };
     }, {});
 
+  // Comparison index calculation.
+  //
+  // A naive `Math.pow(size, size_weight) * Math.pow(count, count_weight)`
+  // overflows to `Infinity` (e.g. size ** 100 when size > ~1209) or
+  // underflows to `0` for large negative weights, which then produces
+  // `0 / 0 === NaN` percentages in the card renderer. We instead work in
+  // log space and subtract the largest log score so the exponentiation
+  // stays within a finite, non-overflowing range while preserving the
+  // ordering and relative weighting of every language.
+  const logScores = Object.keys(repoNodes).reduce((acc, name) => {
+    const { size, count } = repoNodes[name];
+    acc[name] = size_weight * Math.log(size) + count_weight * Math.log(count);
+    return acc;
+  }, {});
+
+  const maxLogScore = Object.keys(logScores).reduce(
+    (max, name) => Math.max(max, logScores[name]),
+    -Infinity,
+  );
+
   Object.keys(repoNodes).forEach((name) => {
-    // comparison index calculation
-    repoNodes[name].size =
-      Math.pow(repoNodes[name].size, size_weight) *
-      Math.pow(repoNodes[name].count, count_weight);
+    const score = Math.exp(logScores[name] - maxLogScore);
+    // Defensive guard: only a finite, positive score contributes to a valid
+    // comparison index. A non-finite score would otherwise surface as NaN in
+    // the rendered percentages.
+    repoNodes[name].size = Number.isFinite(score) && score > 0 ? score : 0;
   });
 
   const topLangs = Object.keys(repoNodes)

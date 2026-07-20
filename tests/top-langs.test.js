@@ -59,12 +59,12 @@ const langs = {
   HTML: {
     color: "#0f0",
     name: "HTML",
-    size: 250,
+    size: 1,
   },
   javascript: {
     color: "#0ff",
     name: "javascript",
-    size: 200,
+    size: 0.8,
   },
 };
 
@@ -292,9 +292,69 @@ describe("Test /api/top-langs", () => {
 
       expect(mock.history.post).toHaveLength(0);
       expect(res.send).toHaveBeenCalledTimes(1);
-      expect(res.send.mock.calls[0][0]).toContain(
-        "Invalid language weight provided.",
+      // P2: a client-side weight error must NOT prompt an issue link.
+      const svg = res.send.mock.calls[0][0];
+      expect(svg).toContain("Invalid language weight provided.");
+      expect(svg).not.toContain("file an issue");
+    },
+  );
+
+  const data_langs_large = {
+    data: {
+      user: {
+        repositories: {
+          nodes: [
+            {
+              languages: {
+                edges: [{ size: 5000, node: { color: "#0f0", name: "HTML" } }],
+              },
+            },
+            {
+              languages: {
+                edges: [
+                  { size: 2000, node: { color: "#0ff", name: "javascript" } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  it.each(["100", "-100"])(
+    "should compute a finite card for extreme weight %s on large repos (P1-12)",
+    async (weight) => {
+      const req = {
+        query: {
+          username: "anuraghazra",
+          size_weight: weight,
+          count_weight: "0",
+        },
+      };
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      };
+      mock
+        .onPost("https://api.github.com/graphql")
+        .reply(200, data_langs_large);
+
+      await topLangs(req, res);
+
+      expect(mock.history.post).toHaveLength(1);
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Content-Type",
+        "image/svg+xml",
       );
+      const svg = res.send.mock.calls[0][0];
+      // Previously `5000 ** 100` overflowed to Infinity (size_weight=100) and
+      // large negative weights underflowed to 0 (0/0 -> NaN). Both extremes
+      // must now render a finite, valid card.
+      expect(svg).not.toContain("NaN");
+      expect(svg).not.toContain("Infinity");
+      expect(svg).toContain("HTML");
+      expect(svg).toContain("javascript");
     },
   );
 });

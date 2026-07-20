@@ -133,12 +133,29 @@ export default async (req, res) => {
     });
   }
 
+  let parsedSizeWeight;
+  let parsedCountWeight;
+  try {
+    parsedSizeWeight = parseOptionalWeight(size_weight);
+    parsedCountWeight = parseOptionalWeight(count_weight);
+  } catch (err) {
+    return sendError(res, {
+      message: "Something went wrong",
+      secondaryMessage:
+        err instanceof CustomError
+          ? err.message
+          : "Invalid language weight provided.",
+      colors,
+      showRepoLink: false,
+    });
+  }
+
   try {
     const topLangs = await fetchTopLanguages(
       username,
       parseArray(exclude_repo),
-      parseOptionalWeight(size_weight),
-      parseOptionalWeight(count_weight),
+      parsedSizeWeight,
+      parsedCountWeight,
     );
     const cacheSeconds = resolveCacheSeconds({
       requested: parseInt(cache_seconds, 10),
