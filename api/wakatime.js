@@ -67,6 +67,7 @@ export default async (req, res) => {
   try {
     validateUsername(username);
   } catch (err) {
+    setErrorCacheHeaders(res);
     return res.send(
       renderError({
         message: "Something went wrong",
