@@ -46,7 +46,7 @@ const validateRepoName = (reponame) => {
  * @throws {CustomError} When the id is missing or malformed.
  */
 const validateGistId = (id) => {
-  if (!id || !GIST_ID_REGEX.test(id)) {
+  if (typeof id !== "string" || !id || !GIST_ID_REGEX.test(id)) {
     throw new CustomError(
       "Invalid gist ID provided.",
       CustomError.GITHUB_REST_API_ERROR,
