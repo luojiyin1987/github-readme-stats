@@ -4,6 +4,45 @@ import { MissingParamError } from "../common/error.js";
 import { request } from "../common/http.js";
 import { retryer } from "../common/retryer.js";
 
+// Fields we need for a pinned repo card. Defined once as a reusable fragment
+// so both the `user` and `organization` lookups below share the same shape.
+const REPO_INFO_FRAGMENT = `
+  fragment RepoInfo on Repository {
+    name
+    nameWithOwner # owner/name
+    isPrivate # private repos are not pinnable
+    isArchived
+    isTemplate
+    stargazers {
+      totalCount # star count
+    }
+    description
+    primaryLanguage {
+      color
+      id
+      name
+    }
+    forkCount
+  }
+`;
+
+const REPO_QUERY = `
+  ${REPO_INFO_FRAGMENT}
+  query getRepo($login: String!, $repo: String!) {
+    # A repo may belong to a user or an organization with the same login.
+    user(login: $login) {
+      repository(name: $repo) {
+        ...RepoInfo
+      }
+    }
+    organization(login: $login) {
+      repository(name: $repo) {
+        ...RepoInfo
+      }
+    }
+  }
+`;
+
 /**
  * Repo data fetcher.
  *
@@ -14,37 +53,7 @@ import { retryer } from "../common/retryer.js";
 const fetcher = (variables, token) => {
   return request(
     {
-      query: `
-      fragment RepoInfo on Repository {
-        name
-        nameWithOwner
-        isPrivate
-        isArchived
-        isTemplate
-        stargazers {
-          totalCount
-        }
-        description
-        primaryLanguage {
-          color
-          id
-          name
-        }
-        forkCount
-      }
-      query getRepo($login: String!, $repo: String!) {
-        user(login: $login) {
-          repository(name: $repo) {
-            ...RepoInfo
-          }
-        }
-        organization(login: $login) {
-          repository(name: $repo) {
-            ...RepoInfo
-          }
-        }
-      }
-    `,
+      query: REPO_QUERY,
       variables,
     },
     {

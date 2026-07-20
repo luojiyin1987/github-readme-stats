@@ -20,16 +20,17 @@ const fetcher = (variables, token) => {
       query: `
       query userInfo($login: String!) {
         user(login: $login) {
-          # fetch only owner repos & not forks
+          # Only repos the user owns, excluding forks.
           repositories(ownerAffiliations: OWNER, isFork: false, first: 100) {
             nodes {
-              name
+              name # repo name
+              # Up to 10 languages per repo, largest by byte size first.
               languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
                 edges {
-                  size
+                  size # bytes of code in this language
                   node {
-                    color
-                    name
+                    color # language color
+                    name # language name
                   }
                 }
               }
