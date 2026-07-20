@@ -1,6 +1,5 @@
 // @ts-check
 
-import { renderError } from "../src/common/render.js";
 import { isLocaleAvailable } from "../src/translations.js";
 import { renderGistCard } from "../src/cards/gist.js";
 import { fetchGist } from "../src/fetchers/gist.js";
@@ -8,15 +7,11 @@ import {
   CACHE_TTL,
   resolveCacheSeconds,
   setCacheHeaders,
-  setErrorCacheHeaders,
 } from "../src/common/cache.js";
 import { guardAccess } from "../src/common/access.js";
 import { CustomError } from "../src/common/error.js";
-import {
-  MissingParamError,
-  retrieveSecondaryMessage,
-} from "../src/common/error.js";
 import { validateGistId } from "../src/common/validate.js";
+import { handleError, sendError } from "../src/common/handler.js";
 import { parseBoolean } from "../src/common/ops.js";
 
 // @ts-ignore
@@ -57,39 +52,24 @@ export default async (req, res) => {
   try {
     validateGistId(id);
   } catch (err) {
-    setErrorCacheHeaders(res);
-    return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage:
-          err instanceof CustomError ? err.message : "Invalid gist ID",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-          show_repo_link: false,
-        },
-      }),
-    );
+    return sendError(res, {
+      message: "Something went wrong",
+      secondaryMessage:
+        err instanceof CustomError ? err.message : "Invalid gist ID",
+      colors: { title_color, text_color, bg_color, border_color, theme },
+      showRepoLink: false,
+    });
   }
+
+  const colors = { title_color, text_color, bg_color, border_color, theme };
 
   try {
     if (locale && !isLocaleAvailable(locale)) {
-      return res.send(
-        renderError({
-          message: "Something went wrong",
-          secondaryMessage: "Language not found",
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-          },
-        }),
-      );
+      return sendError(res, {
+        message: "Something went wrong",
+        secondaryMessage: "Language not found",
+        colors,
+      });
     }
 
     const gistData = await fetchGist(id);
@@ -117,34 +97,6 @@ export default async (req, res) => {
       }),
     );
   } catch (err) {
-    setErrorCacheHeaders(res);
-    if (err instanceof Error) {
-      return res.send(
-        renderError({
-          message: err.message,
-          secondaryMessage: retrieveSecondaryMessage(err),
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-            show_repo_link: !(err instanceof MissingParamError),
-          },
-        }),
-      );
-    }
-    return res.send(
-      renderError({
-        message: "An unknown error occurred",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return handleError(res, err, colors);
   }
 };

@@ -6,16 +6,11 @@ import {
   CACHE_TTL,
   resolveCacheSeconds,
   setCacheHeaders,
-  setErrorCacheHeaders,
 } from "../src/common/cache.js";
 import { CustomError } from "../src/common/error.js";
-import {
-  MissingParamError,
-  retrieveSecondaryMessage,
-} from "../src/common/error.js";
 import { validateUsername } from "../src/common/validate.js";
+import { handleError, sendError } from "../src/common/handler.js";
 import { parseArray, parseBoolean } from "../src/common/ops.js";
-import { renderError } from "../src/common/render.js";
 import { fetchTopLanguages } from "../src/fetchers/top-languages.js";
 import { isLocaleAvailable } from "../src/translations.js";
 
@@ -66,38 +61,23 @@ export default async (req, res) => {
   try {
     validateUsername(username);
   } catch (err) {
-    setErrorCacheHeaders(res);
-    return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage:
-          err instanceof CustomError ? err.message : "Invalid username",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-          show_repo_link: false,
-        },
-      }),
-    );
+    return sendError(res, {
+      message: "Something went wrong",
+      secondaryMessage:
+        err instanceof CustomError ? err.message : "Invalid username",
+      colors: { title_color, text_color, bg_color, border_color, theme },
+      showRepoLink: false,
+    });
   }
 
+  const colors = { title_color, text_color, bg_color, border_color, theme };
+
   if (locale && !isLocaleAvailable(locale)) {
-    return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Locale not found",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return sendError(res, {
+      message: "Something went wrong",
+      secondaryMessage: "Locale not found",
+      colors,
+    });
   }
 
   if (
@@ -105,19 +85,11 @@ export default async (req, res) => {
     (typeof layout !== "string" ||
       !["compact", "normal", "donut", "donut-vertical", "pie"].includes(layout))
   ) {
-    return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Incorrect layout input",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return sendError(res, {
+      message: "Something went wrong",
+      secondaryMessage: "Incorrect layout input",
+      colors,
+    });
   }
 
   if (
@@ -125,27 +97,19 @@ export default async (req, res) => {
     (typeof stats_format !== "string" ||
       !["bytes", "percentages"].includes(stats_format))
   ) {
-    return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Incorrect stats_format input",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return sendError(res, {
+      message: "Something went wrong",
+      secondaryMessage: "Incorrect stats_format input",
+      colors,
+    });
   }
 
   try {
     const topLangs = await fetchTopLanguages(
       username,
       parseArray(exclude_repo),
-      size_weight,
-      count_weight,
+      size_weight === undefined ? undefined : Number(size_weight),
+      count_weight === undefined ? undefined : Number(count_weight),
     );
     const cacheSeconds = resolveCacheSeconds({
       requested: parseInt(cache_seconds, 10),
@@ -178,34 +142,6 @@ export default async (req, res) => {
       }),
     );
   } catch (err) {
-    setErrorCacheHeaders(res);
-    if (err instanceof Error) {
-      return res.send(
-        renderError({
-          message: err.message,
-          secondaryMessage: retrieveSecondaryMessage(err),
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-            show_repo_link: !(err instanceof MissingParamError),
-          },
-        }),
-      );
-    }
-    return res.send(
-      renderError({
-        message: "An unknown error occurred",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return handleError(res, err, colors);
   }
 };

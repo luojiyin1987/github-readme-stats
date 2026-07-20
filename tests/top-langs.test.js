@@ -244,4 +244,27 @@ describe("Test /api/top-langs", () => {
         `stale-while-revalidate=${DURATIONS.ONE_DAY}`,
     );
   });
+
+  it("should parse size_weight / count_weight as numbers (P1-10)", async () => {
+    const req = {
+      query: {
+        username: "anuraghazra",
+        size_weight: "2",
+        count_weight: "1",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+    mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+
+    await topLangs(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    // The card must render without throwing on a non-default numeric weight
+    // passed as a string; previously this reached Math.pow(size, "2").
+    expect(res.send).toHaveBeenCalled();
+    expect(mock.history.post).toHaveLength(1);
+  });
 });
