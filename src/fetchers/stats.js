@@ -19,8 +19,7 @@ dotenv.config();
 // and selects only the fields it needs.
 
 // --- Repositories the user owns (used to count stars + top repos) ----------
-// Up to 100 repos the user owns (not forks), newest-starred first; paginated
-// via `after` so very active users are walked page by page.
+// Up to 100 repos the user owns (including forks), newest-starred first; paginated\n// via `after` so very active users are walked page by page.
 const GRAPHQL_REPOS_FIELD = `
   repositories(first: 100, ownerAffiliations: OWNER, orderBy: {direction: DESC, field: STARGAZERS}, after: $after) {
     totalCount # total number of owned repositories
