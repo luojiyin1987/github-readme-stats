@@ -8,10 +8,12 @@ import {
   setCacheHeaders,
   setErrorCacheHeaders,
 } from "../src/common/cache.js";
+import { CustomError } from "../src/common/error.js";
 import {
   MissingParamError,
   retrieveSecondaryMessage,
 } from "../src/common/error.js";
+import { validateUsername } from "../src/common/validate.js";
 import { parseArray, parseBoolean } from "../src/common/ops.js";
 import { renderError } from "../src/common/render.js";
 import { fetchStats } from "../src/fetchers/stats.js";
@@ -67,23 +69,44 @@ export default async (req, res) => {
     return access.result;
   }
 
-  if (locale && !isLocaleAvailable(locale)) {
+  try {
+    validateUsername(username);
+  } catch (err) {
+    setErrorCacheHeaders(res);
     return res.send(
       renderError({
         message: "Something went wrong",
-        secondaryMessage: "Language not found",
+        secondaryMessage:
+          err instanceof CustomError ? err.message : "Invalid username",
         renderOptions: {
           title_color,
           text_color,
           bg_color,
           border_color,
           theme,
+          show_repo_link: false,
         },
       }),
     );
   }
 
   try {
+    if (locale && !isLocaleAvailable(locale)) {
+      return res.send(
+        renderError({
+          message: "Something went wrong",
+          secondaryMessage: "Language not found",
+          renderOptions: {
+            title_color,
+            text_color,
+            bg_color,
+            border_color,
+            theme,
+          },
+        }),
+      );
+    }
+
     const showStats = parseArray(show);
 
     let commitsYear;

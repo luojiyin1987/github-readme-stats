@@ -3,6 +3,7 @@
 import { renderError } from "./render.js";
 import { blacklist } from "./blacklist.js";
 import { whitelist, gistWhitelist } from "./envs.js";
+import { logger } from "./log.js";
 
 const NOT_WHITELISTED_USERNAME_MESSAGE = "This username is not whitelisted";
 const NOT_WHITELISTED_GIST_MESSAGE = "This gist ID is not whitelisted";
@@ -30,6 +31,26 @@ const guardAccess = ({ res, id, type, colors }) => {
     type === "gist"
       ? NOT_WHITELISTED_GIST_MESSAGE
       : NOT_WHITELISTED_USERNAME_MESSAGE;
+
+  // Whitelist is authoritative only when explicitly configured as an array.
+  // `undefined` means "disabled" (allow all); any other shape (e.g. a stray
+  // string) is treated as misconfiguration and fails closed.
+  if (currentWhitelist !== undefined && !Array.isArray(currentWhitelist)) {
+    logger.log(
+      `guardAccess: whitelist for type '${type}' is not an array; failing closed`,
+    );
+    const result = res.send(
+      renderError({
+        message: notWhitelistedMsg,
+        secondaryMessage: "Please deploy your own instance",
+        renderOptions: {
+          ...colors,
+          show_repo_link: false,
+        },
+      }),
+    );
+    return { isPassed: false, result };
+  }
 
   if (Array.isArray(currentWhitelist) && !currentWhitelist.includes(id)) {
     const result = res.send(

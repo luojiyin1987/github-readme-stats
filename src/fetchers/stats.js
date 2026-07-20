@@ -308,15 +308,26 @@ const fetchTotalCommits = (variables, token) => {
 const totalCommitsFetcher = async (username) => {
   if (!githubUsernameRegex.test(username)) {
     logger.log("Invalid username provided.");
-    throw new Error("Invalid username provided.");
+    throw new CustomError(
+      "Invalid username provided.",
+      CustomError.GITHUB_REST_API_ERROR,
+    );
   }
 
   let res;
   try {
     res = await retryer(fetchTotalCommits, { login: username });
   } catch (err) {
-    logger.log(err);
-    throw new Error(err);
+    logger.error(
+      err instanceof Error
+        ? `totalCommitsFetcher failed: ${err.message}`
+        : "totalCommitsFetcher failed",
+    );
+    const message =
+      err instanceof CustomError
+        ? err.message
+        : "Could not fetch total commits.";
+    throw new CustomError(message, CustomError.GITHUB_REST_API_ERROR);
   }
 
   const totalCount = res.data.total_count;

@@ -11,10 +11,12 @@ import {
   setErrorCacheHeaders,
 } from "../src/common/cache.js";
 import { guardAccess } from "../src/common/access.js";
+import { CustomError } from "../src/common/error.js";
 import {
   MissingParamError,
   retrieveSecondaryMessage,
 } from "../src/common/error.js";
+import { validateGistId } from "../src/common/validate.js";
 import { parseBoolean } from "../src/common/ops.js";
 
 // @ts-ignore
@@ -52,23 +54,44 @@ export default async (req, res) => {
     return access.result;
   }
 
-  if (locale && !isLocaleAvailable(locale)) {
+  try {
+    validateGistId(id);
+  } catch (err) {
+    setErrorCacheHeaders(res);
     return res.send(
       renderError({
         message: "Something went wrong",
-        secondaryMessage: "Language not found",
+        secondaryMessage:
+          err instanceof CustomError ? err.message : "Invalid gist ID",
         renderOptions: {
           title_color,
           text_color,
           bg_color,
           border_color,
           theme,
+          show_repo_link: false,
         },
       }),
     );
   }
 
   try {
+    if (locale && !isLocaleAvailable(locale)) {
+      return res.send(
+        renderError({
+          message: "Something went wrong",
+          secondaryMessage: "Language not found",
+          renderOptions: {
+            title_color,
+            text_color,
+            bg_color,
+            border_color,
+            theme,
+          },
+        }),
+      );
+    }
+
     const gistData = await fetchGist(id);
     const cacheSeconds = resolveCacheSeconds({
       requested: parseInt(cache_seconds, 10),
