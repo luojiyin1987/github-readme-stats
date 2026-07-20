@@ -4,14 +4,6 @@ import { MissingParamError } from "../common/error.js";
 import { request } from "../common/http.js";
 import { retryer } from "../common/retryer.js";
 
-/**
- * Repo data fetcher.
- *
- * @param {object} variables Fetcher variables.
- * @param {string} token GitHub token.
- * @returns {Promise<import('axios').AxiosResponse>} The response.
- */
-
 // Fields we need for a pinned repo card. Defined once as a reusable fragment
 // so both the `user` and `organization` lookups below share the same shape.
 const REPO_INFO_FRAGMENT = `
@@ -51,6 +43,13 @@ const REPO_QUERY = `
   }
 `;
 
+/**
+ * Repo data fetcher.
+ *
+ * @param {object} variables Fetcher variables.
+ * @param {string} token GitHub token.
+ * @returns {Promise<import('axios').AxiosResponse>} The response.
+ */
 const fetcher = (variables, token) => {
   return request(
     {
