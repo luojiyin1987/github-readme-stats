@@ -186,14 +186,20 @@ const trimTopLanguages = (topLangs, langs_count, hide) => {
 
   // filter out languages to be hidden
   langs = langs
-    .sort((a, b) => b.size - a.size)
+    .sort((a, b) => (b.score ?? b.size) - (a.score ?? a.size))
     .filter((lang) => {
       // @ts-ignore
       return !langsToHide[lowercaseTrim(lang.name)];
     })
     .slice(0, langsCount);
 
-  const totalLanguageSize = langs.reduce((acc, curr) => acc + curr.size, 0);
+  // `totalLanguageSize` is the weighted comparison total (sum of `score`),
+  // used for percentage/progress ratios; the raw byte `size` is preserved for
+  // `stats_format=bytes` display.
+  const totalLanguageSize = langs.reduce(
+    (acc, curr) => acc + (curr.score ?? curr.size),
+    0,
+  );
 
   return { langs, totalLanguageSize };
 };
@@ -217,8 +223,8 @@ const getDisplayValue = (size, percentages, format) => {
  * @param {number} props.width The card width
  * @param {string} props.color Color of the programming language.
  * @param {string} props.name Name of the programming language.
- * @param {number} props.size Size of the programming language.
- * @param {number} props.totalSize Total size of all languages.
+ * @param {Lang} props.lang Programming language object.
+ * @param {number} props.totalSize Total weighted size of all languages.
  * @param {string} props.statsFormat Stats format.
  * @param {number} props.index Index of the programming language.
  * @returns {string} Programming language SVG node.
@@ -227,7 +233,7 @@ const createProgressTextNode = ({
   width,
   color,
   name,
-  size,
+  lang,
   totalSize,
   statsFormat,
   index,
@@ -237,8 +243,10 @@ const createProgressTextNode = ({
   const progressTextX = width - paddingRight + 10;
   const progressWidth = width - paddingRight;
 
-  const progress = (size / totalSize) * 100;
-  const displayValue = getDisplayValue(size, progress, statsFormat);
+  // Percentage uses the weighted `score`; `stats_format=bytes` displays the
+  // raw byte `size` via `getDisplayValue`.
+  const progress = ((lang.score ?? lang.size) / totalSize) * 100;
+  const displayValue = getDisplayValue(lang.size, progress, statsFormat);
 
   return `
     <g class="stagger" style="animation-delay: ${staggerDelay}ms">
@@ -275,7 +283,7 @@ const createCompactLangNode = ({
   statsFormat = "percentages",
   index,
 }) => {
-  const percentages = (lang.size / totalSize) * 100;
+  const percentages = ((lang.score ?? lang.size) / totalSize) * 100;
   const displayValue = getDisplayValue(lang.size, percentages, statsFormat);
 
   const staggerDelay = (index + 3) * 150;
@@ -327,7 +335,10 @@ const createLanguageTextNode = ({
     }).join("");
   });
 
-  const percent = ((longestLang.size / totalSize) * 100).toFixed(2);
+  const percent = (
+    ((longestLang.score ?? longestLang.size) / totalSize) *
+    100
+  ).toFixed(2);
   const minGap = 150;
   const maxGap = 20 + measureText(`${longestLang.name} ${percent}%`, 11);
   return flexLayout({
@@ -377,7 +388,7 @@ const renderNormalLayout = (langs, width, totalLanguageSize, statsFormat) => {
         width,
         name: lang.name,
         color: lang.color || DEFAULT_LANG_COLOR,
-        size: lang.size,
+        lang,
         totalSize: totalLanguageSize,
         statsFormat,
         index,
@@ -413,7 +424,9 @@ const renderCompactLayout = (
   const compactProgressBar = langs
     .map((lang) => {
       const percentage = parseFloat(
-        ((lang.size / totalLanguageSize) * offsetWidth).toFixed(2),
+        (((lang.score ?? lang.size) / totalLanguageSize) * offsetWidth).toFixed(
+          2,
+        ),
       );
 
       const progress = percentage < 10 ? percentage + 10 : percentage;
@@ -480,7 +493,7 @@ const renderDonutVerticalLayout = (langs, totalLanguageSize, statsFormat) => {
 
   // Generate each donut vertical chart part
   for (const lang of langs) {
-    const percentage = (lang.size / totalLanguageSize) * 100;
+    const percentage = ((lang.score ?? lang.size) / totalLanguageSize) * 100;
     const circleLength = totalCircleLength * (percentage / 100);
     const delay = startDelayCoefficient * 100;
 
@@ -568,7 +581,7 @@ const renderPieLayout = (langs, totalLanguageSize, statsFormat) => {
       break;
     }
 
-    const langSizePart = lang.size / totalLanguageSize;
+    const langSizePart = (lang.score ?? lang.size) / totalLanguageSize;
     const percentage = langSizePart * 100;
     // Calculate the angle for the current part
     const angle = langSizePart * 360;
@@ -679,7 +692,9 @@ const renderDonutLayout = (langs, width, totalLanguageSize, statsFormat) => {
 
   const colors = langs.map((lang) => lang.color);
   const langsPercents = langs.map((lang) =>
-    parseFloat(((lang.size / totalLanguageSize) * 100).toFixed(2)),
+    parseFloat(
+      (((lang.score ?? lang.size) / totalLanguageSize) * 100).toFixed(2),
+    ),
   );
 
   const langPaths = createDonutPaths(centerX, centerY, radius, langsPercents);

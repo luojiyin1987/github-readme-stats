@@ -6,16 +6,11 @@ import {
   CACHE_TTL,
   resolveCacheSeconds,
   setCacheHeaders,
-  setErrorCacheHeaders,
 } from "../src/common/cache.js";
 import { CustomError } from "../src/common/error.js";
-import {
-  MissingParamError,
-  retrieveSecondaryMessage,
-} from "../src/common/error.js";
 import { validateRepoName, validateUsername } from "../src/common/validate.js";
+import { handleError, sendError } from "../src/common/handler.js";
 import { parseBoolean } from "../src/common/ops.js";
-import { renderError } from "../src/common/render.js";
 import { fetchRepo } from "../src/fetchers/repo.js";
 import { isLocaleAvailable } from "../src/translations.js";
 
@@ -60,39 +55,24 @@ export default async (req, res) => {
     validateUsername(username);
     validateRepoName(repo);
   } catch (err) {
-    setErrorCacheHeaders(res);
-    return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage:
-          err instanceof CustomError ? err.message : "Invalid username or repo",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-          show_repo_link: false,
-        },
-      }),
-    );
+    return sendError(res, {
+      message: "Something went wrong",
+      secondaryMessage:
+        err instanceof CustomError ? err.message : "Invalid username or repo",
+      colors: { title_color, text_color, bg_color, border_color, theme },
+      showRepoLink: false,
+    });
   }
+
+  const colors = { title_color, text_color, bg_color, border_color, theme };
 
   try {
     if (locale && !isLocaleAvailable(locale)) {
-      return res.send(
-        renderError({
-          message: "Something went wrong",
-          secondaryMessage: "Language not found",
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-          },
-        }),
-      );
+      return sendError(res, {
+        message: "Something went wrong",
+        secondaryMessage: "Language not found",
+        colors,
+      });
     }
 
     const repoData = await fetchRepo(username, repo);
@@ -121,34 +101,6 @@ export default async (req, res) => {
       }),
     );
   } catch (err) {
-    setErrorCacheHeaders(res);
-    if (err instanceof Error) {
-      return res.send(
-        renderError({
-          message: err.message,
-          secondaryMessage: retrieveSecondaryMessage(err),
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-            show_repo_link: !(err instanceof MissingParamError),
-          },
-        }),
-      );
-    }
-    return res.send(
-      renderError({
-        message: "An unknown error occurred",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return handleError(res, err, colors);
   }
 };

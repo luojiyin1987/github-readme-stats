@@ -61,3 +61,88 @@ describe("Error cache headers on invalid params (all API entry points)", () => {
     },
   );
 });
+
+describe("Error cache headers on every non-validation error path (P1-9)", () => {
+  const localeCases = [
+    {
+      name: "stats",
+      handler: api,
+      query: { username: "anuraghazra", locale: "zzz" },
+    },
+    {
+      name: "top-langs",
+      handler: topLangs,
+      query: { username: "anuraghazra", locale: "zzz" },
+    },
+    {
+      name: "pin",
+      handler: pin,
+      query: { username: "anuraghazra", repo: "convoychat", locale: "zzz" },
+    },
+    {
+      name: "gist",
+      handler: gist,
+      query: { id: "abcdefabcdefabcdefabcd", locale: "zzz" },
+    },
+    {
+      name: "wakatime",
+      handler: wakatime,
+      query: { username: "anuraghazra", locale: "zzz" },
+    },
+  ];
+
+  it.each(localeCases)(
+    "should set error cache headers on unknown locale for /api/$name",
+    async ({ handler, query }) => {
+      const req = { query };
+      const res = buildRes();
+
+      await handler(req, res);
+
+      expect(mock.history.post).toHaveLength(0);
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Cache-Control",
+        expect.stringContaining("max-age="),
+      );
+    },
+  );
+
+  it("should set error cache headers on invalid commits_year (stats)", async () => {
+    const req = { query: { username: "anuraghazra", commits_year: "1800" } };
+    const res = buildRes();
+
+    await api(req, res);
+
+    expect(mock.history.post).toHaveLength(0);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "Cache-Control",
+      expect.stringContaining("max-age="),
+    );
+  });
+
+  it("should set error cache headers on invalid layout (top-langs)", async () => {
+    const req = { query: { username: "anuraghazra", layout: "bogus" } };
+    const res = buildRes();
+
+    await topLangs(req, res);
+
+    expect(mock.history.post).toHaveLength(0);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "Cache-Control",
+      expect.stringContaining("max-age="),
+    );
+  });
+
+  it("should set error cache headers on invalid stats_format (top-langs)", async () => {
+    const req = { query: { username: "anuraghazra", stats_format: "bogus" } };
+    const res = buildRes();
+
+    await topLangs(req, res);
+
+    expect(mock.history.post).toHaveLength(0);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "Cache-Control",
+      expect.stringContaining("max-age="),
+    );
+  });
+});

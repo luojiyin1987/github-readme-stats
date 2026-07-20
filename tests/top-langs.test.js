@@ -60,11 +60,13 @@ const langs = {
     color: "#0f0",
     name: "HTML",
     size: 250,
+    score: 1,
   },
   javascript: {
     color: "#0ff",
     name: "javascript",
     size: 200,
+    score: 0.8,
   },
 };
 
@@ -244,4 +246,144 @@ describe("Test /api/top-langs", () => {
         `stale-while-revalidate=${DURATIONS.ONE_DAY}`,
     );
   });
+
+  it("should compute a finite card for valid numeric weights (P1-10)", async () => {
+    const req = {
+      query: {
+        username: "anuraghazra",
+        size_weight: "0",
+        count_weight: "0",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+    mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+
+    await topLangs(req, res);
+
+    expect(mock.history.post).toHaveLength(1);
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    // size_weight=0 -> Math.pow(size, 0) = 1 for every language, so a finite
+    // card must render with no NaN/Infinity leaking into the SVG output.
+    const svg = res.send.mock.calls[0][0];
+    expect(svg).not.toContain("NaN");
+    expect(svg).not.toContain("Infinity");
+  });
+
+  it("should display raw byte sizes in stats_format=bytes (P1-13)", async () => {
+    const req = {
+      query: {
+        username: "anuraghazra",
+        stats_format: "bytes",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+    mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+
+    await topLangs(req, res);
+
+    expect(mock.history.post).toHaveLength(1);
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    const svg = res.send.mock.calls[0][0];
+    // The raw byte size must be preserved (not overwritten by the normalized
+    // weighted score), so bytes mode shows real sizes.
+    expect(svg).toContain("250.0 B");
+    expect(svg).toContain("200.0 B");
+    expect(svg).not.toContain("undefined");
+    expect(svg).not.toContain("NaN");
+    expect(svg).not.toContain("Infinity");
+  });
+
+  it.each([
+    { size_weight: "abc" },
+    { count_weight: "abc" },
+    { size_weight: ["2", "1"] },
+    { size_weight: "1e309" },
+    { size_weight: "-1e309" },
+    { size_weight: "" },
+  ])(
+    "should reject invalid weight %o without calling GitHub (P1-11)",
+    async (query) => {
+      const req = {
+        query: { username: "anuraghazra", ...query },
+      };
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      };
+
+      await topLangs(req, res);
+
+      expect(mock.history.post).toHaveLength(0);
+      expect(res.send).toHaveBeenCalledTimes(1);
+      // P2: a client-side weight error must NOT prompt an issue link.
+      const svg = res.send.mock.calls[0][0];
+      expect(svg).toContain("Invalid language weight provided.");
+      expect(svg).not.toContain("file an issue");
+    },
+  );
+
+  const data_langs_large = {
+    data: {
+      user: {
+        repositories: {
+          nodes: [
+            {
+              languages: {
+                edges: [{ size: 5000, node: { color: "#0f0", name: "HTML" } }],
+              },
+            },
+            {
+              languages: {
+                edges: [
+                  { size: 2000, node: { color: "#0ff", name: "javascript" } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  it.each(["100", "-100"])(
+    "should compute a finite card for extreme weight %s on large repos (P1-12)",
+    async (weight) => {
+      const req = {
+        query: {
+          username: "anuraghazra",
+          size_weight: weight,
+          count_weight: "0",
+        },
+      };
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      };
+      mock
+        .onPost("https://api.github.com/graphql")
+        .reply(200, data_langs_large);
+
+      await topLangs(req, res);
+
+      expect(mock.history.post).toHaveLength(1);
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Content-Type",
+        "image/svg+xml",
+      );
+      const svg = res.send.mock.calls[0][0];
+      // Previously `5000 ** 100` overflowed to Infinity (size_weight=100) and
+      // large negative weights underflowed to 0 (0/0 -> NaN). Both extremes
+      // must now render a finite, valid card.
+      expect(svg).not.toContain("NaN");
+      expect(svg).not.toContain("Infinity");
+      expect(svg).toContain("HTML");
+      expect(svg).toContain("javascript");
+    },
+  );
 });
