@@ -216,11 +216,11 @@ describe("Test /api/pin", () => {
     );
   });
 
-  it("should render error if username or repo is malformed", async () => {
+  it("should render error if username is malformed (repo valid)", async () => {
     const req = {
       query: {
         username: "anuraghazra!",
-        repo: "convoy chat",
+        repo: "convoychat",
       },
     };
     const res = {
@@ -238,6 +238,82 @@ describe("Test /api/pin", () => {
         renderOptions: { show_repo_link: false },
       }),
     );
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it("should render error if repo is malformed (username valid)", async () => {
+    const req = {
+      query: {
+        username: "anuraghazra",
+        repo: "convoy chat",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await pin(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Invalid repository name provided.",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it("should render error and skip upstream request if username is an array", async () => {
+    const req = {
+      query: {
+        username: ["anuraghazra"],
+        repo: "convoychat",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await pin(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Invalid username provided.",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it("should render error and skip upstream request if repo is an array", async () => {
+    const req = {
+      query: {
+        username: "anuraghazra",
+        repo: ["convoychat"],
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await pin(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Invalid repository name provided.",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+    expect(mock.history.post).toHaveLength(0);
   });
 
   it("should have proper cache", async () => {

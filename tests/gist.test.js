@@ -157,6 +157,49 @@ describe("Test /api/gist", () => {
     );
   });
 
+  it("should render error and skip upstream request if gist id is an array", async () => {
+    const req = {
+      query: {
+        id: ["abcdefabcdefabcdefabcd"],
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await gist(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Invalid gist ID provided.",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it("should set error cache headers if gist id is malformed", async () => {
+    const req = {
+      query: {
+        id: "../../etc/passwd",
+      },
+    };
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await gist(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "Cache-Control",
+      expect.stringContaining("max-age="),
+    );
+  });
+
   it("should render error if gist is not found", async () => {
     const req = {
       query: {

@@ -181,7 +181,7 @@ describe("Test /api/", () => {
     },
   );
 
-  it.each(["anuraghazra!", "bad user", "../etc/passwd", ""])(
+  it.each(["anuraghazra!", "bad user", "../etc/passwd", "", ["anuraghazra"]])(
     "should reject malformed username %s without calling GitHub",
     async (username) => {
       const { req, res } = faker({ username }, data_stats);
@@ -205,6 +205,17 @@ describe("Test /api/", () => {
       );
     },
   );
+
+  it("should set error cache headers when username is invalid", async () => {
+    const { req, res } = faker({ username: "anuraghazra!" }, data_stats);
+
+    await api(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "Cache-Control",
+      expect.stringContaining("max-age="),
+    );
+  });
 
   it("should render error card on error", async () => {
     const { req, res } = faker({}, error);

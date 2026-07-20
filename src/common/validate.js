@@ -14,7 +14,11 @@ const GIST_ID_REGEX = /^[a-f0-9]{20,}$/i;
  * @throws {CustomError} When the username is missing or malformed.
  */
 const validateUsername = (username) => {
-  if (!username || !githubUsernameRegex.test(username)) {
+  if (
+    typeof username !== "string" ||
+    !username ||
+    !githubUsernameRegex.test(username)
+  ) {
     throw new CustomError(
       "Invalid username provided.",
       CustomError.GITHUB_REST_API_ERROR,
@@ -30,7 +34,11 @@ const validateUsername = (username) => {
  * @throws {CustomError} When the name is missing or malformed.
  */
 const validateRepoName = (reponame) => {
-  if (!reponame || !REPO_NAME_REGEX.test(reponame)) {
+  if (
+    typeof reponame !== "string" ||
+    !reponame ||
+    !REPO_NAME_REGEX.test(reponame)
+  ) {
     throw new CustomError(
       "Invalid repository name provided.",
       CustomError.GITHUB_REST_API_ERROR,

@@ -318,7 +318,11 @@ const totalCommitsFetcher = async (username) => {
   try {
     res = await retryer(fetchTotalCommits, { login: username });
   } catch (err) {
-    logger.log(err);
+    logger.error(
+      err instanceof Error
+        ? `totalCommitsFetcher failed: ${err.message}`
+        : "totalCommitsFetcher failed",
+    );
     const message =
       err instanceof CustomError
         ? err.message

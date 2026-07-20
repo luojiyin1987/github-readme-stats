@@ -72,6 +72,7 @@ export default async (req, res) => {
   try {
     validateUsername(username);
   } catch (err) {
+    setErrorCacheHeaders(res);
     return res.send(
       renderError({
         message: "Something went wrong",
@@ -89,23 +90,23 @@ export default async (req, res) => {
     );
   }
 
-  if (locale && !isLocaleAvailable(locale)) {
-    return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Language not found",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
-  }
-
   try {
+    if (locale && !isLocaleAvailable(locale)) {
+      return res.send(
+        renderError({
+          message: "Something went wrong",
+          secondaryMessage: "Language not found",
+          renderOptions: {
+            title_color,
+            text_color,
+            bg_color,
+            border_color,
+            theme,
+          },
+        }),
+      );
+    }
+
     const showStats = parseArray(show);
 
     let commitsYear;
