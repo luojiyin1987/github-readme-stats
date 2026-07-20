@@ -245,12 +245,12 @@ describe("Test /api/top-langs", () => {
     );
   });
 
-  it("should parse size_weight / count_weight as numbers (P1-10)", async () => {
+  it("should compute a finite card for valid numeric weights (P1-10)", async () => {
     const req = {
       query: {
         username: "anuraghazra",
-        size_weight: "2",
-        count_weight: "1",
+        size_weight: "0",
+        count_weight: "0",
       },
     };
     const res = {
@@ -261,10 +261,40 @@ describe("Test /api/top-langs", () => {
 
     await topLangs(req, res);
 
-    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
-    // The card must render without throwing on a non-default numeric weight
-    // passed as a string; previously this reached Math.pow(size, "2").
-    expect(res.send).toHaveBeenCalled();
     expect(mock.history.post).toHaveLength(1);
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    // size_weight=0 -> Math.pow(size, 0) = 1 for every language, so a finite
+    // card must render with no NaN/Infinity leaking into the SVG output.
+    const svg = res.send.mock.calls[0][0];
+    expect(svg).not.toContain("NaN");
+    expect(svg).not.toContain("Infinity");
   });
+
+  it.each([
+    { size_weight: "abc" },
+    { count_weight: "abc" },
+    { size_weight: ["2", "1"] },
+    { size_weight: "1e309" },
+    { size_weight: "-1e309" },
+    { size_weight: "" },
+  ])(
+    "should reject invalid weight %o without calling GitHub (P1-11)",
+    async (query) => {
+      const req = {
+        query: { username: "anuraghazra", ...query },
+      };
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      };
+
+      await topLangs(req, res);
+
+      expect(mock.history.post).toHaveLength(0);
+      expect(res.send).toHaveBeenCalledTimes(1);
+      expect(res.send.mock.calls[0][0]).toContain(
+        "Invalid language weight provided.",
+      );
+    },
+  );
 });

@@ -50,8 +50,9 @@ const sendError = (
 /**
  * Render and send an error card from a thrown error, used by the shared
  * `try/catch` wrapper of every API handler. Mirrors the prior per-handler
- * behavior: `MissingParamError` shows the repo link, other errors hide it by
- * default, and non-`Error` values fall back to a generic message.
+ * behavior: a `MissingParamError` hides the repo link (it is a client-side
+ * param error), while other errors show it by default; non-`Error` values
+ * fall back to a generic message.
  *
  * @param {object} res The response object.
  * @param {unknown} err The thrown value.

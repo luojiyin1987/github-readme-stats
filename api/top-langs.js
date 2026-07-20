@@ -14,6 +14,35 @@ import { parseArray, parseBoolean } from "../src/common/ops.js";
 import { fetchTopLanguages } from "../src/fetchers/top-languages.js";
 import { isLocaleAvailable } from "../src/translations.js";
 
+const MAX_WEIGHT = 100;
+
+/**
+ * Parse an optional language weight query parameter.
+ *
+ * @param {unknown} value Raw `size_weight` / `count_weight` query value.
+ * @returns {number|undefined} Parsed weight, or `undefined` when omitted.
+ * @throws {CustomError} When the value is malformed, non-finite, or out of range.
+ */
+const parseOptionalWeight = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new CustomError(
+      "Invalid language weight provided.",
+      CustomError.GITHUB_REST_API_ERROR,
+    );
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || Math.abs(parsed) > MAX_WEIGHT) {
+    throw new CustomError(
+      "Invalid language weight provided.",
+      CustomError.GITHUB_REST_API_ERROR,
+    );
+  }
+  return parsed;
+};
+
 // @ts-ignore
 export default async (req, res) => {
   const {
@@ -108,8 +137,8 @@ export default async (req, res) => {
     const topLangs = await fetchTopLanguages(
       username,
       parseArray(exclude_repo),
-      size_weight === undefined ? undefined : Number(size_weight),
-      count_weight === undefined ? undefined : Number(count_weight),
+      parseOptionalWeight(size_weight),
+      parseOptionalWeight(count_weight),
     );
     const cacheSeconds = resolveCacheSeconds({
       requested: parseInt(cache_seconds, 10),
