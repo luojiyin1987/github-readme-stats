@@ -1,0 +1,19 @@
+.vercel
+.env
+node_modules
+*.lock
+.idea/
+coverage
+benchmarks
+vercel_token
+
+# Local analysis docs (not part of the published project)
+docs/
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.code-workspace
+
+.vercel
