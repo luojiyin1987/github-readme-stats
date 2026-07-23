@@ -175,6 +175,9 @@ beforeEach(() => {
     if (req.query.includes("totalPullRequestReviewContributions")) {
       return [200, data_reviews];
     }
+    if (req.query.includes("query publicUserInfo")) {
+      return [200, data_stats];
+    }
     if (req.query.includes("totalCommitContributions")) {
       if (
         req.variables &&
@@ -456,6 +459,46 @@ describe("Test fetchStats", () => {
   it("should throw specific error when include_all_commits true and invalid username", async () => {
     await expect(fetchStats("asdf///---", true)).rejects.toThrow(
       new Error("Invalid username provided."),
+    );
+  });
+
+  it("should use public fields when public_only is true", async () => {
+    const graphqlQueries = [];
+    mock.reset();
+    mock.onPost("https://api.github.com/graphql").reply((cfg) => {
+      const req = JSON.parse(cfg.data);
+      graphqlQueries.push(req.query);
+
+      if (req.query.includes("query publicUserInfo")) {
+        return [200, data_stats];
+      }
+      if (req.query.includes("repositories(first")) {
+        return [200, data_repo_page1];
+      }
+      return [200, data_integration_access_error];
+    });
+    mock
+      .onGet("https://api.github.com/search/commits?q=author:anuraghazra")
+      .reply(200, { total_count: 1000 });
+
+    const stats = await fetchStats(
+      "anuraghazra",
+      true,
+      [],
+      false,
+      false,
+      false,
+      undefined,
+      true,
+    );
+
+    expect(stats.totalCommits).toBe(1000);
+    expect(stats.contributedTo).toBeNull();
+    expect(stats.totalReviews).toBe(0);
+    expect(graphqlQueries).toHaveLength(2);
+    expect(graphqlQueries.join("\n")).not.toContain("contributionsCollection");
+    expect(graphqlQueries.join("\n")).not.toContain(
+      "repositoriesContributedTo",
     );
   });
 
