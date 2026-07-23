@@ -27,6 +27,16 @@ const data_stats = {
 const data_year2003 = JSON.parse(JSON.stringify(data_stats));
 data_year2003.data.user.contributions.totalCommitContributions = 428;
 
+const data_public_stats = {
+  data: {
+    user: {
+      name: "Anurag Hazra",
+      login: "anuraghazra",
+      followers: { totalCount: 100 },
+    },
+  },
+};
+
 const data_repo_page1 = {
   data: {
     user: {
@@ -176,7 +186,7 @@ beforeEach(() => {
       return [200, data_reviews];
     }
     if (req.query.includes("query publicUserInfo")) {
-      return [200, data_stats];
+      return [200, data_public_stats];
     }
     if (req.query.includes("totalCommitContributions")) {
       if (
@@ -470,20 +480,16 @@ describe("Test fetchStats", () => {
       graphqlQueries.push(req.query);
 
       if (req.query.includes("query publicUserInfo")) {
-        return [200, data_stats];
+        return [200, data_public_stats];
       }
       if (req.query.includes("repositories(first")) {
         return [200, data_repo_page1];
       }
       return [200, data_integration_access_error];
     });
-    mock
-      .onGet("https://api.github.com/search/commits?q=author:anuraghazra")
-      .reply(200, { total_count: 1000 });
-
     const stats = await fetchStats(
       "anuraghazra",
-      true,
+      false,
       [],
       false,
       false,
@@ -492,14 +498,20 @@ describe("Test fetchStats", () => {
       true,
     );
 
-    expect(stats.totalCommits).toBe(1000);
+    expect(stats.totalCommits).toBe(0);
+    expect(stats.totalPRs).toBe(0);
+    expect(stats.totalIssues).toBe(0);
     expect(stats.contributedTo).toBeNull();
     expect(stats.totalReviews).toBe(0);
+    expect(stats.totalStars).toBe(300);
+    expect(mock.history.get).toHaveLength(0);
     expect(graphqlQueries).toHaveLength(2);
     expect(graphqlQueries.join("\n")).not.toContain("contributionsCollection");
     expect(graphqlQueries.join("\n")).not.toContain(
       "repositoriesContributedTo",
     );
+    expect(graphqlQueries.join("\n")).not.toContain("pullRequests");
+    expect(graphqlQueries.join("\n")).not.toContain("issues(");
   });
 
   it("should throw specific error when include_all_commits true and API returns error", async () => {

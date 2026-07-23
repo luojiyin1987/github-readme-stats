@@ -115,15 +115,6 @@ const GRAPHQL_PUBLIC_STATS_QUERY = `
     user(login: $login) {
       name
       login
-      pullRequests(first: 1) {
-        totalCount
-      }
-      openIssues: issues(states: OPEN) {
-        totalCount
-      }
-      closedIssues: issues(states: CLOSED) {
-        totalCount
-      }
       followers {
         totalCount
       }
@@ -488,31 +479,41 @@ const fetchStats = async (
 
   stats.name = user.name || user.login;
 
-  // if include_all_commits, fetch all commits using the REST API.
-  if (include_all_commits) {
-    stats.totalCommits = await totalCommitsFetcher(username);
+  if (public_only) {
+    stats.totalCommits = 0;
+    stats.totalPRs = 0;
+    stats.totalIssues = 0;
+    stats.totalReviews = 0;
+    stats.contributedTo = null;
   } else {
-    stats.totalCommits = user.contributions.totalCommitContributions;
+    // If include_all_commits, fetch all commits with the REST API.
+    if (include_all_commits) {
+      stats.totalCommits = await totalCommitsFetcher(username);
+    } else {
+      stats.totalCommits = user.contributions.totalCommitContributions;
+    }
+
+    stats.totalPRs = user.pullRequests.totalCount;
+    if (include_merged_pull_requests) {
+      stats.totalPRsMerged = user.mergedPullRequests.totalCount;
+      stats.mergedPRsPercentage =
+        (user.mergedPullRequests.totalCount / user.pullRequests.totalCount) *
+          100 || 0;
+    }
+    stats.totalReviews =
+      user.contributions.totalPullRequestReviewContributions ?? 0;
+    stats.totalIssues =
+      user.openIssues.totalCount + user.closedIssues.totalCount;
+    stats.contributedTo = user.repositoriesContributedTo?.totalCount ?? null;
   }
 
-  stats.totalPRs = user.pullRequests.totalCount;
-  if (include_merged_pull_requests) {
-    stats.totalPRsMerged = user.mergedPullRequests.totalCount;
-    stats.mergedPRsPercentage =
-      (user.mergedPullRequests.totalCount / user.pullRequests.totalCount) *
-        100 || 0;
-  }
-  stats.totalReviews =
-    user.contributions.totalPullRequestReviewContributions ?? 0;
-  stats.totalIssues = user.openIssues.totalCount + user.closedIssues.totalCount;
-  if (include_discussions) {
+  if (include_discussions && !public_only) {
     stats.totalDiscussionsStarted = user.repositoryDiscussions.totalCount;
   }
-  if (include_discussions_answers) {
+  if (include_discussions_answers && !public_only) {
     stats.totalDiscussionsAnswered =
       user.repositoryDiscussionComments.totalCount;
   }
-  stats.contributedTo = user.repositoriesContributedTo?.totalCount ?? null;
 
   // Retrieve stars while filtering out repositories to be hidden.
   const allExcludedRepos = [...exclude_repo, ...excludeRepositories];
