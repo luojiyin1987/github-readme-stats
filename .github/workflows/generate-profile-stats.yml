@@ -1,0 +1,111 @@
+name: Generate Profile Stats
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: generate-profile-stats
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Collect public statistics
+        env:
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+        run: |
+          node scripts/collect-public-stats.mjs \
+            --username "$GITHUB_USERNAME" \
+            --output dist/stats.json
+
+      - name: Render SVG cards
+        run: |
+          node scripts/render-stats.mjs \
+            --input dist/stats.json \
+            --stats-output dist/stats.svg \
+            --languages-output dist/top-langs.svg
+
+      - name: Write metadata
+        env:
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+        run: |
+          node -e '
+          const fs = require("node:fs");
+          fs.writeFileSync(
+            "dist/meta.json",
+            JSON.stringify(
+              {
+                schema_version: 1,
+                username: process.env.GITHUB_USERNAME,
+                generated_at: new Date().toISOString(),
+                source_commit: process.env.GITHUB_SHA,
+              },
+              null,
+              2,
+            ) + "\n",
+          );
+          '
+
+      - name: Validate generated files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/stats.json
+          test -s dist/stats.svg
+          test -s dist/top-langs.svg
+          test -s dist/meta.json
+          grep -q '<svg' dist/stats.svg
+          grep -q '<svg' dist/top-langs.svg
+          if grep -RqiE 'Something went wrong|Resource not accessible|Bad credentials' dist; then
+            echo "::error::Generated files contain an API error"
+            exit 1
+          fi
+
+      - name: Publish generated files
+        shell: bash
+        env:
+          ASSET_BRANCH: profile-stats
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          worktree="$(mktemp -d)"
+
+          if git ls-remote --exit-code --heads origin "$ASSET_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$ASSET_BRANCH:$ASSET_BRANCH"
+            git worktree add "$worktree" "$ASSET_BRANCH"
+          else
+            git worktree add --detach "$worktree"
+            git -C "$worktree" checkout --orphan "$ASSET_BRANCH"
+            git -C "$worktree" rm -rf . || true
+          fi
+
+          rsync --archive --delete --exclude='.git' dist/ "$worktree/"
+          git -C "$worktree" add -A
+
+          if git -C "$worktree" diff --cached --quiet; then
+            echo "Generated statistics have not changed."
+            exit 0
+          fi
+
+          git -C "$worktree" commit -m "chore: update profile statistics"
+          git -C "$worktree" push origin "HEAD:$ASSET_BRANCH"
