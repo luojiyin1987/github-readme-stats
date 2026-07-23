@@ -186,6 +186,26 @@ const reviewsFetcher = (variables, token) => {
 };
 
 /**
+ * Check if GitHub denied an optional field to an Actions integration.
+ *
+ * GitHub Apps cannot read contributions from unrelated private repositories.
+ *
+ * @param {unknown[]} errors GraphQL errors returned by GitHub.
+ * @returns {boolean} True when every error denies integration access.
+ */
+const hasOnlyIntegrationAccessErrors = (errors) => {
+  return (
+    Array.isArray(errors) &&
+    errors.length > 0 &&
+    errors.every(
+      (error) =>
+        typeof error?.message === "string" &&
+        /resource not accessible by integration/i.test(error.message),
+    )
+  );
+};
+
+/**
  * Fetch stats information for a given username.
  *
  * @param {object} variables Fetcher variables.
@@ -268,7 +288,9 @@ const statsFetcher = async ({
     const onlyResourceLimitErrors = contributedToErrors.every(
       (error) => error.type === "RESOURCE_LIMITS_EXCEEDED",
     );
-    if (!onlyResourceLimitErrors) {
+    const onlyIntegrationAccessErrors =
+      hasOnlyIntegrationAccessErrors(contributedToErrors);
+    if (!onlyResourceLimitErrors && !onlyIntegrationAccessErrors) {
       return contributedToRes;
     }
   } else {
@@ -280,10 +302,13 @@ const statsFetcher = async ({
     login: username,
   });
   if (reviewsRes.data.errors) {
-    return reviewsRes;
+    if (!hasOnlyIntegrationAccessErrors(reviewsRes.data.errors)) {
+      return reviewsRes;
+    }
+  } else {
+    stats.data.data.user.contributions.totalPullRequestReviewContributions =
+      reviewsRes.data.data.user.contributions.totalPullRequestReviewContributions;
   }
-  stats.data.data.user.contributions.totalPullRequestReviewContributions =
-    reviewsRes.data.data.user.contributions.totalPullRequestReviewContributions;
 
   return stats;
 };
@@ -440,7 +465,8 @@ const fetchStats = async (
       (user.mergedPullRequests.totalCount / user.pullRequests.totalCount) *
         100 || 0;
   }
-  stats.totalReviews = user.contributions.totalPullRequestReviewContributions;
+  stats.totalReviews =
+    user.contributions.totalPullRequestReviewContributions ?? 0;
   stats.totalIssues = user.openIssues.totalCount + user.closedIssues.totalCount;
   if (include_discussions) {
     stats.totalDiscussionsStarted = user.repositoryDiscussions.totalCount;

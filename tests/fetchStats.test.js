@@ -72,6 +72,15 @@ const data_contributed_to_other_error = {
   ],
 };
 
+const data_integration_access_error = {
+  errors: [
+    {
+      type: "FORBIDDEN",
+      message: "Resource not accessible by integration",
+    },
+  ],
+};
+
 const data_contributed_to_empty_user = {
   data: {
     user: null,
@@ -301,6 +310,42 @@ describe("Test fetchStats", () => {
       totalDiscussionsAnswered: 0,
       rank,
     });
+  });
+
+  it("should omit inaccessible contributed repositories for an Actions token", async () => {
+    mock.reset();
+    mock
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_stats)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_repo_page1)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_integration_access_error)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_reviews);
+
+    const stats = await fetchStats("anuraghazra");
+
+    expect(stats.contributedTo).toBeNull();
+    expect(stats.totalReviews).toBe(50);
+  });
+
+  it("should omit inaccessible reviews for an Actions token", async () => {
+    mock.reset();
+    mock
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_stats)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_repo_page1)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_contributed_to)
+      .onPost("https://api.github.com/graphql")
+      .replyOnce(200, data_integration_access_error);
+
+    const stats = await fetchStats("anuraghazra");
+
+    expect(stats.contributedTo).toBe(61);
+    expect(stats.totalReviews).toBe(0);
   });
 
   it("should still fail when repositoriesContributedTo returns a non-resource-limit error", async () => {
