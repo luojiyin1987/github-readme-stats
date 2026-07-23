@@ -34,7 +34,7 @@ jobs:
           OUTPUT_DIR: generated
           STATS_QUERY:
             "/api?username=${{ github.repository_owner
-            }}&show_icons=true&public_only=true&include_all_commits=true&hide=contribs&hide_rank=true&title_color=0891b2&text_color=ffffff&icon_color=0891b2&bg_color=1c1917&hide_border=true"
+            }}&show_icons=true&public_only=true&hide=commits,prs,issues,contribs&hide_rank=true&title_color=0891b2&text_color=ffffff&icon_color=0891b2&bg_color=1c1917&hide_border=true"
           TOP_LANGS_QUERY:
             "/api/top-langs/?username=${{ github.repository_owner
             }}&langs_count=10&title_color=0891b2&text_color=ffffff&icon_color=0891b2&bg_color=1c1917&hide_border=true&locale=en&custom_title=Top%20Languages"
