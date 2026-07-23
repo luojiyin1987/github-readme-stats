@@ -11,16 +11,41 @@ const MAX_RETRIES = 3;
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-const getRetryDelay = (response, attempt) => {
+const getRetryDelay = (
+  response,
+  attempt,
+  { primaryRateLimited, secondaryRateLimited },
+) => {
   const retryAfter = Number(response.headers.get("retry-after"));
-  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+  if (
+    (primaryRateLimited || secondaryRateLimited) &&
+    Number.isFinite(retryAfter) &&
+    retryAfter > 0
+  ) {
     return retryAfter * 1000;
   }
-  const rateLimitReset = Number(response.headers.get("x-ratelimit-reset"));
-  if (Number.isFinite(rateLimitReset) && rateLimitReset > 0) {
-    return Math.max(rateLimitReset * 1000 - Date.now(), REQUEST_DELAY_MS);
+  if (primaryRateLimited) {
+    const rateLimitReset = Number(response.headers.get("x-ratelimit-reset"));
+    if (Number.isFinite(rateLimitReset) && rateLimitReset > 0) {
+      return Math.max(rateLimitReset * 1000 - Date.now(), REQUEST_DELAY_MS);
+    }
+  }
+  if (secondaryRateLimited) {
+    return Math.max(60_000, REQUEST_DELAY_MS * 2 ** attempt);
   }
   return REQUEST_DELAY_MS * 2 ** attempt;
+};
+
+const isSecondaryRateLimited = async (response) => {
+  if (response.status !== 403 || typeof response.clone !== "function") {
+    return false;
+  }
+  try {
+    const body = await response.clone().json();
+    return /secondary rate limit/i.test(body?.message || "");
+  } catch {
+    return false;
+  }
 };
 
 const fetchPublicJson = async (url, { fetchImpl = fetch, sleepImpl = sleep } = {}) => {
@@ -48,17 +73,24 @@ const fetchPublicJson = async (url, { fetchImpl = fetch, sleepImpl = sleep } = {
       return response.json();
     }
 
-    const isRateLimited =
+    const primaryRateLimited =
       response.status === 429 ||
       (response.status === 403 &&
         (response.headers.get("x-ratelimit-remaining") === "0" ||
           response.headers.has("retry-after")));
-    const isRetryable = isRateLimited || response.status >= 500;
+    const secondaryRateLimited = await isSecondaryRateLimited(response);
+    const isRetryable =
+      primaryRateLimited || secondaryRateLimited || response.status >= 500;
     if (!isRetryable || attempt === MAX_RETRIES) {
       throw new Error(`GitHub API request failed with status ${response.status}.`);
     }
 
-    await sleepImpl(getRetryDelay(response, attempt));
+    await sleepImpl(
+      getRetryDelay(response, attempt, {
+        primaryRateLimited,
+        secondaryRateLimited,
+      }),
+    );
   }
 
   throw lastError || new Error("GitHub API request failed.");
@@ -93,7 +125,8 @@ const collectPublicStats = async ({
     }
   }
 
-  const languages = repositories.reduce((result, repository) => {
+  const sourceRepositories = repositories.filter((repository) => !repository.fork);
+  const languages = sourceRepositories.reduce((result, repository) => {
     if (!repository.language) {
       return result;
     }
@@ -116,7 +149,7 @@ const collectPublicStats = async ({
     username,
     visibility_scope: "public",
     stats_scope: "public-basic",
-    languages_scope: "primary-language-weighted-by-repository-size",
+    languages_scope: "primary-language-weighted-by-source-repository-size",
     available_fields: ["stars", "languages"],
     stats: {
       name: user.name || user.login || username,
