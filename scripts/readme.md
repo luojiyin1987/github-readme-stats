@@ -24,3 +24,12 @@ Smoke test:
 ```
 node scripts/generate-readme-cards.smoke.js
 ```
+
+## Profile statistics snapshots
+
+`collect-public-stats.mjs` collects anonymous public GitHub data.
+It does not use an authorization header.
+
+`render-stats.mjs` renders `stats.svg` and `top-langs.svg` from a snapshot.
+
+The workflow publishes these files to the `profile-stats` branch.
