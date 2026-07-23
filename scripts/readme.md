@@ -27,8 +27,8 @@ node scripts/generate-readme-cards.smoke.js
 
 ## Profile statistics snapshots
 
-`collect-public-stats.mjs` collects anonymous public GitHub data.
-It does not use an authorization header.
+`collect-public-stats.mjs` uses `PAT_1` for full statistics and rank data.
+Without `PAT_1`, it collects anonymous public GitHub data.
 
 `render-stats.mjs` renders `stats.svg` and `top-langs.svg` from a snapshot.
 

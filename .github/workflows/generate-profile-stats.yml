@@ -29,10 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Collect public statistics
+      - name: Collect statistics
         env:
           GITHUB_USERNAME: ${{ github.repository_owner }}
+          PAT_1: ${{ secrets.PAT_1 }}
         run: |
+          test -n "$PAT_1"
           node scripts/collect-public-stats.mjs \
             --username "$GITHUB_USERNAME" \
             --output dist/stats.json

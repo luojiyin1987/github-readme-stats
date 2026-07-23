@@ -1,6 +1,9 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 
-import { collectPublicStats } from "../scripts/collect-public-stats.mjs";
+import {
+  collectProfileStats,
+  collectPublicStats,
+} from "../scripts/collect-public-stats.mjs";
 
 const jsonResponse = (data) => ({
   ok: true,
@@ -43,5 +46,44 @@ describe("collectPublicStats", () => {
     expect(
       requests.every(({ options }) => !options.headers.Authorization),
     ).toBe(true);
+  });
+
+  it("uses the token-backed fetchers for rank data", async () => {
+    const stats = {
+      name: "The Octocat",
+      totalStars: 4,
+      totalCommits: 10,
+      totalIssues: 2,
+      totalPRs: 3,
+      totalPRsMerged: 1,
+      mergedPRsPercentage: 33.3,
+      totalReviews: 5,
+      totalDiscussionsStarted: 0,
+      totalDiscussionsAnswered: 0,
+      contributedTo: 2,
+      rank: { level: "A", percentile: 20 },
+    };
+    const languages = {
+      JavaScript: {
+        name: "JavaScript",
+        color: "#f1e05a",
+        size: 2048,
+        count: 1,
+      },
+    };
+    const fetchStatsImpl = jest.fn(async () => stats);
+    const fetchTopLanguagesImpl = jest.fn(async () => languages);
+
+    const snapshot = await collectProfileStats({
+      username: "octocat",
+      token: "test-token",
+      fetchStatsImpl,
+      fetchTopLanguagesImpl,
+    });
+
+    expect(snapshot.stats.rank.level).toBe("A");
+    expect(snapshot.languages).toBe(languages);
+    expect(fetchStatsImpl).toHaveBeenCalledWith("octocat");
+    expect(fetchTopLanguagesImpl).toHaveBeenCalledWith("octocat");
   });
 });

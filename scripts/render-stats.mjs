@@ -9,8 +9,6 @@ import { renderTopLanguages } from "../src/cards/top-languages.js";
 
 const STATS_OPTIONS = {
   show_icons: true,
-  hide: ["commits", "prs", "issues", "contribs"],
-  hide_rank: true,
   hide_border: true,
   title_color: "0891b2",
   text_color: "ffffff",

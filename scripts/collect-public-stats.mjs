@@ -4,6 +4,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
+import { fetchStats } from "../src/fetchers/stats.js";
+import { fetchTopLanguages } from "../src/fetchers/top-languages.js";
+
 const API_ROOT = "https://api.github.com";
 const REQUEST_DELAY_MS = 750;
 const MAX_RETRIES = 3;
@@ -128,6 +131,29 @@ const collectPublicStats = async ({
   };
 };
 
+const collectProfileStats = async ({
+  username,
+  token = process.env.PAT_1,
+  fetchStatsImpl = fetchStats,
+  fetchTopLanguagesImpl = fetchTopLanguages,
+  publicOptions = {},
+}) => {
+  if (!token) {
+    return collectPublicStats({ username, ...publicOptions });
+  }
+
+  const stats = await fetchStatsImpl(username);
+  const languages = await fetchTopLanguagesImpl(username);
+
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    username,
+    stats,
+    languages,
+  };
+};
+
 const writeSnapshot = async (outputPath, snapshot) => {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   const temporaryPath = `${outputPath}.tmp-${process.pid}`;
@@ -147,7 +173,7 @@ const run = async () => {
     throw new Error("Use --username and --output.");
   }
 
-  const snapshot = await collectPublicStats({ username: values.username });
+  const snapshot = await collectProfileStats({ username: values.username });
   await writeSnapshot(values.output, snapshot);
 };
 
@@ -159,4 +185,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === modulePath) {
   });
 }
 
-export { collectPublicStats, fetchPublicJson, writeSnapshot };
+export {
+  collectProfileStats,
+  collectPublicStats,
+  fetchPublicJson,
+  writeSnapshot,
+};
