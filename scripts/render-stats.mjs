@@ -61,7 +61,10 @@ const renderSnapshot = async ({ input, statsOutput, languagesOutput }) => {
     stats,
     getStatsOptions(snapshot.available_fields),
   );
-  const languagesSvg = renderTopLanguages(snapshot.languages, LANGUAGES_OPTIONS);
+  const languagesSvg = renderTopLanguages(
+    snapshot.languages,
+    LANGUAGES_OPTIONS,
+  );
 
   await fs.mkdir(path.dirname(statsOutput), { recursive: true });
   await fs.mkdir(path.dirname(languagesOutput), { recursive: true });
