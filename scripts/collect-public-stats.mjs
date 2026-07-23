@@ -37,7 +37,9 @@ const getRetryDelay = (
 };
 
 const isSecondaryRateLimited = async (response) => {
-  if (response.status !== 403 || typeof response.clone !== "function") {
+  const isRateLimitStatus = response.status === 403 || response.status === 429;
+
+  if (!isRateLimitStatus || typeof response.clone !== "function") {
     return false;
   }
   try {
@@ -48,7 +50,10 @@ const isSecondaryRateLimited = async (response) => {
   }
 };
 
-const fetchPublicJson = async (url, { fetchImpl = fetch, sleepImpl = sleep } = {}) => {
+const fetchPublicJson = async (
+  url,
+  { fetchImpl = fetch, sleepImpl = sleep } = {},
+) => {
   let lastError;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
@@ -73,16 +78,20 @@ const fetchPublicJson = async (url, { fetchImpl = fetch, sleepImpl = sleep } = {
       return response.json();
     }
 
-    const primaryRateLimited =
-      response.status === 429 ||
-      (response.status === 403 &&
-        (response.headers.get("x-ratelimit-remaining") === "0" ||
-          response.headers.has("retry-after")));
-    const secondaryRateLimited = await isSecondaryRateLimited(response);
+    const isRateLimitStatus =
+      response.status === 403 || response.status === 429;
+    const remaining = response.headers.get("x-ratelimit-remaining");
+    const primaryRateLimited = isRateLimitStatus && remaining === "0";
+    const secondaryRateLimited =
+      isRateLimitStatus &&
+      (response.headers.has("retry-after") ||
+        (await isSecondaryRateLimited(response)));
     const isRetryable =
       primaryRateLimited || secondaryRateLimited || response.status >= 500;
     if (!isRetryable || attempt === MAX_RETRIES) {
-      throw new Error(`GitHub API request failed with status ${response.status}.`);
+      throw new Error(
+        `GitHub API request failed with status ${response.status}.`,
+      );
     }
 
     await sleepImpl(
@@ -112,7 +121,9 @@ const collectPublicStats = async ({
     return result;
   };
 
-  const user = await request(`${API_ROOT}/users/${encodeURIComponent(username)}`);
+  const user = await request(
+    `${API_ROOT}/users/${encodeURIComponent(username)}`,
+  );
   const repositories = [];
 
   for (let page = 1; ; page += 1) {
@@ -125,7 +136,9 @@ const collectPublicStats = async ({
     }
   }
 
-  const sourceRepositories = repositories.filter((repository) => !repository.fork);
+  const sourceRepositories = repositories.filter(
+    (repository) => !repository.fork,
+  );
   const languages = sourceRepositories.reduce((result, repository) => {
     if (!repository.language) {
       return result;

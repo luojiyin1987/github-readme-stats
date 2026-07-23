@@ -123,4 +123,31 @@ describe("collectPublicStats", () => {
 
     expect(sleepImpl).toHaveBeenCalledWith(60_000);
   });
+
+  it("treats a secondary 429 as a secondary rate limit", async () => {
+    const sleepImpl = jest.fn(async () => {});
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        headers: new Headers({
+          "x-ratelimit-remaining": "1",
+          "x-ratelimit-reset": "4102444800",
+        }),
+        clone: () => ({
+          json: async () => ({
+            message: "You have exceeded a secondary rate limit.",
+          }),
+        }),
+      })
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    await fetchPublicJson("https://api.github.com/test", {
+      fetchImpl,
+      sleepImpl,
+    });
+
+    expect(sleepImpl).toHaveBeenCalledWith(60_000);
+  });
 });
