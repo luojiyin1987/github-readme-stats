@@ -29,20 +29,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Collect statistics
+      - name: Generate cards with the local API
         env:
           GITHUB_USERNAME: ${{ github.repository_owner }}
+          PAT_1: ${{ secrets.PAT_1 }}
+          FETCH_MULTI_PAGE_STARS: "true"
+          STATS_QUERY: >-
+            /api?username=${{ github.repository_owner
+            }}&show_icons=true&include_all_commits=true&show=prs_merged,prs_merged_percentage&title_color=0891b2&text_color=ffffff&icon_color=0891b2&bg_color=1c1917&hide_border=true
+          TOP_LANGS_QUERY: >-
+            /api/top-langs?username=${{ github.repository_owner
+            }}&langs_count=10&title_color=0891b2&text_color=ffffff&bg_color=1c1917&hide_border=true
         run: |
-          node scripts/collect-public-stats.mjs \
+          test -n "$PAT_1"
+          node scripts/generate-readme-cards.js \
             --username "$GITHUB_USERNAME" \
-            --output dist/stats.json
-
-      - name: Render SVG cards
-        run: |
-          node scripts/render-stats.mjs \
-            --input dist/stats.json \
             --stats-output dist/stats.svg \
-            --languages-output dist/top-langs.svg
+            --top-langs-output dist/top-langs.svg
 
       - name: Write metadata
         env:
@@ -54,10 +57,11 @@ jobs:
             "dist/meta.json",
             JSON.stringify(
               {
-                schema_version: 2,
+                schema_version: 1,
                 username: process.env.GITHUB_USERNAME,
                 generated_at: new Date().toISOString(),
                 source_commit: process.env.GITHUB_SHA,
+                files: ["stats.svg", "top-langs.svg"],
               },
               null,
               2,
@@ -69,7 +73,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s dist/stats.json
           test -s dist/stats.svg
           test -s dist/top-langs.svg
           test -s dist/meta.json

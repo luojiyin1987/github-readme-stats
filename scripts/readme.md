@@ -25,14 +25,15 @@ Smoke test:
 node scripts/generate-readme-cards.smoke.js
 ```
 
-## Profile statistics snapshots
+## Profile statistics cards
 
-`collect-public-stats.mjs` collects anonymous public GitHub data.
-It does not use `PAT_1`.
+The profile workflow uses the local stats API and top languages API.
+It runs the stats API first.
+It runs the top languages API after the stats API completes.
+The API fetchers combine the query results before they render each SVG.
 
-`render-stats.mjs` renders `stats.svg` and `top-langs.svg` from a snapshot.
+The workflow requires the `PAT_1` repository secret.
+Use a token that has access only to data you can publish.
 
-The language card uses each source repository's primary language and size.
-It is an approximate language distribution.
-
-The workflow publishes these files to the `profile-stats` branch.
+The workflow publishes `stats.svg`, `top-langs.svg`, and `meta.json`.
+It writes these files to the `profile-stats` branch.
