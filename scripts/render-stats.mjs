@@ -9,13 +9,35 @@ import { renderTopLanguages } from "../src/cards/top-languages.js";
 
 const STATS_OPTIONS = {
   show_icons: true,
-  hide: ["commits", "prs", "issues", "contribs"],
-  hide_rank: true,
   hide_border: true,
   title_color: "0891b2",
   text_color: "ffffff",
   icon_color: "0891b2",
   bg_color: "1c1917",
+};
+
+const getStatsOptions = (availableFields = []) => {
+  const available = new Set(availableFields);
+  const hide = [];
+
+  if (!available.has("commits")) {
+    hide.push("commits");
+  }
+  if (!available.has("prs")) {
+    hide.push("prs");
+  }
+  if (!available.has("issues")) {
+    hide.push("issues");
+  }
+  if (!available.has("contribs")) {
+    hide.push("contribs");
+  }
+
+  return {
+    ...STATS_OPTIONS,
+    hide,
+    hide_rank: !available.has("rank"),
+  };
 };
 
 const LANGUAGES_OPTIONS = {
@@ -26,13 +48,23 @@ const LANGUAGES_OPTIONS = {
   icon_color: "0891b2",
   bg_color: "1c1917",
   locale: "en",
-  custom_title: "Top Languages",
+  custom_title: "Primary Languages (Approx.)",
 };
 
 const renderSnapshot = async ({ input, statsOutput, languagesOutput }) => {
   const snapshot = JSON.parse(await fs.readFile(input, "utf8"));
-  const statsSvg = renderStatsCard(snapshot.stats, STATS_OPTIONS);
-  const languagesSvg = renderTopLanguages(snapshot.languages, LANGUAGES_OPTIONS);
+  const stats = {
+    ...snapshot.stats,
+    rank: snapshot.stats.rank || { level: "C", percentile: 100 },
+  };
+  const statsSvg = renderStatsCard(
+    stats,
+    getStatsOptions(snapshot.available_fields),
+  );
+  const languagesSvg = renderTopLanguages(
+    snapshot.languages,
+    LANGUAGES_OPTIONS,
+  );
 
   await fs.mkdir(path.dirname(statsOutput), { recursive: true });
   await fs.mkdir(path.dirname(languagesOutput), { recursive: true });
@@ -68,4 +100,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === modulePath) {
   });
 }
 
-export { renderSnapshot };
+export { getStatsOptions, renderSnapshot };

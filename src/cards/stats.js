@@ -452,7 +452,7 @@ const renderStatsCard = (stats, options = {}) => {
   );
 
   // the lower the user's percentile the better
-  const progress = 100 - rank.percentile;
+  const progress = hide_rank ? 0 : 100 - rank.percentile;
   const cssStyles = getStyles({
     titleColor,
     ringColor,
@@ -584,7 +584,7 @@ const renderStatsCard = (stats, options = {}) => {
     .join(", ");
 
   card.setAccessibilityLabel({
-    title: `${card.title}, Rank: ${rank.level}`,
+    title: hide_rank ? card.title : `${card.title}, Rank: ${rank.level}`,
     desc: labels,
   });
 
