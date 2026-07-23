@@ -109,6 +109,28 @@ const GRAPHQL_STATS_QUERY = `
   }
 `;
 
+// This query excludes user-level contribution data.
+const GRAPHQL_PUBLIC_STATS_QUERY = `
+  query publicUserInfo($login: String!) {
+    user(login: $login) {
+      name
+      login
+      pullRequests(first: 1) {
+        totalCount
+      }
+      openIssues: issues(states: OPEN) {
+        totalCount
+      }
+      closedIssues: issues(states: CLOSED) {
+        totalCount
+      }
+      followers {
+        totalCount
+      }
+    }
+  }
+`;
+
 /**
  * Stats fetcher object.
  *
@@ -116,11 +138,11 @@ const GRAPHQL_STATS_QUERY = `
  * @param {string} token GitHub token.
  * @returns {Promise<import('axios').AxiosResponse>} Axios response.
  */
-const fetcher = (variables, token) => {
+const fetcher = ({ publicOnly, ...variables }, token) => {
   return request(
     {
-      query: GRAPHQL_STATS_QUERY,
-      variables,
+      query: publicOnly ? GRAPHQL_PUBLIC_STATS_QUERY : GRAPHQL_STATS_QUERY,
+      variables: publicOnly ? { login: variables.login } : variables,
     },
     {
       Authorization: `bearer ${token}`,
@@ -213,6 +235,7 @@ const hasOnlyIntegrationAccessErrors = (errors) => {
  * @param {boolean} variables.includeMergedPullRequests Include merged pull requests.
  * @param {boolean} variables.includeDiscussions Include discussions.
  * @param {boolean} variables.includeDiscussionsAnswers Include discussions answers.
+ * @param {boolean} variables.publicOnly Use public repository statistics only.
  * @param {string|undefined} variables.startTime Time to start the count of total commits.
  * @returns {Promise<import('axios').AxiosResponse>} Axios response.
  *
@@ -223,6 +246,7 @@ const statsFetcher = async ({
   includeMergedPullRequests,
   includeDiscussions,
   includeDiscussionsAnswers,
+  publicOnly,
   startTime,
 }) => {
   const stats = await retryer(fetcher, {
@@ -231,6 +255,7 @@ const statsFetcher = async ({
     includeDiscussions,
     includeDiscussionsAnswers,
     startTime,
+    publicOnly,
   });
   if (stats.data.errors) {
     return stats;
@@ -269,6 +294,15 @@ const statsFetcher = async ({
     endCursor = repoPage.pageInfo.endCursor;
   }
   stats.data.data.user.repositories = repositories;
+
+  if (publicOnly) {
+    stats.data.data.user.repositoriesContributedTo = null;
+    stats.data.data.user.contributions = {
+      totalCommitContributions: 0,
+      totalPullRequestReviewContributions: 0,
+    };
+    return stats;
+  }
 
   const contributedToRes = await retryer(contributedToFetcher, {
     login: username,
@@ -388,6 +422,7 @@ const totalCommitsFetcher = async (username) => {
  * @param {boolean} include_discussions Include discussions.
  * @param {boolean} include_discussions_answers Include discussions answers.
  * @param {number|undefined} commits_year Year to count total commits
+ * @param {boolean} public_only Use public repository statistics only.
  * @returns {Promise<import("./types").StatsData>} Stats data.
  */
 const fetchStats = async (
@@ -398,6 +433,7 @@ const fetchStats = async (
   include_discussions = false,
   include_discussions_answers = false,
   commits_year,
+  public_only = false,
 ) => {
   if (!username) {
     throw new MissingParamError(["username"]);
@@ -424,6 +460,7 @@ const fetchStats = async (
     includeDiscussions: include_discussions,
     includeDiscussionsAnswers: include_discussions_answers,
     startTime: commits_year ? `${commits_year}-01-01T00:00:00Z` : undefined,
+    publicOnly: public_only,
   });
 
   // Catch GraphQL errors.
