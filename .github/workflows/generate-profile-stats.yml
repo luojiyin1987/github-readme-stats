@@ -57,7 +57,8 @@ jobs:
             "dist/meta.json",
             JSON.stringify(
               {
-                schema_version: 1,
+                schema_version: 3,
+                artifact_type: "profile-cards",
                 username: process.env.GITHUB_USERNAME,
                 generated_at: new Date().toISOString(),
                 source_commit: process.env.GITHUB_SHA,
@@ -78,6 +79,11 @@ jobs:
           test -s dist/meta.json
           grep -q '<svg' dist/stats.svg
           grep -q '<svg' dist/top-langs.svg
+          jq -e '
+            .schema_version == 3 and
+            .artifact_type == "profile-cards" and
+            .files == ["stats.svg", "top-langs.svg"]
+          ' dist/meta.json
           if grep -RqiE 'Something went wrong|Resource not accessible|Bad credentials' dist; then
             echo "::error::Generated files contain an API error"
             exit 1
