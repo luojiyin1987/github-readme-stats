@@ -4,9 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-import { fetchStats } from "../src/fetchers/stats.js";
-import { fetchTopLanguages } from "../src/fetchers/top-languages.js";
-
 const API_ROOT = "https://api.github.com";
 const REQUEST_DELAY_MS = 750;
 const MAX_RETRIES = 3;
@@ -108,48 +105,18 @@ const collectPublicStats = async ({
     schema_version: 1,
     generated_at: new Date().toISOString(),
     username,
+    visibility_scope: "public",
+    stats_scope: "public-basic",
+    available_fields: ["stars", "languages"],
     stats: {
       name: user.name || user.login || username,
       totalStars: repositories.reduce(
         (total, repository) => total + (repository.stargazers_count || 0),
         0,
       ),
-      totalCommits: 0,
-      totalIssues: 0,
-      totalPRs: 0,
-      totalPRsMerged: 0,
-      mergedPRsPercentage: 0,
-      totalReviews: 0,
-      totalDiscussionsStarted: 0,
-      totalDiscussionsAnswered: 0,
-      contributedTo: null,
-      rank: { level: "C", percentile: 100 },
       followers: user.followers || 0,
       repositories: repositories.length,
     },
-    languages,
-  };
-};
-
-const collectProfileStats = async ({
-  username,
-  token = process.env.PAT_1,
-  fetchStatsImpl = fetchStats,
-  fetchTopLanguagesImpl = fetchTopLanguages,
-  publicOptions = {},
-}) => {
-  if (!token) {
-    return collectPublicStats({ username, ...publicOptions });
-  }
-
-  const stats = await fetchStatsImpl(username);
-  const languages = await fetchTopLanguagesImpl(username);
-
-  return {
-    schema_version: 1,
-    generated_at: new Date().toISOString(),
-    username,
-    stats,
     languages,
   };
 };
@@ -173,7 +140,7 @@ const run = async () => {
     throw new Error("Use --username and --output.");
   }
 
-  const snapshot = await collectProfileStats({ username: values.username });
+  const snapshot = await collectPublicStats({ username: values.username });
   await writeSnapshot(values.output, snapshot);
 };
 
@@ -185,9 +152,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === modulePath) {
   });
 }
 
-export {
-  collectProfileStats,
-  collectPublicStats,
-  fetchPublicJson,
-  writeSnapshot,
-};
+export { collectPublicStats, fetchPublicJson, writeSnapshot };

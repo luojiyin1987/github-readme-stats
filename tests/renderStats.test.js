@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "@jest/globals";
 
-import { renderSnapshot } from "../scripts/render-stats.mjs";
+import { getStatsOptions, renderSnapshot } from "../scripts/render-stats.mjs";
 
 const temporaryDirectories = [];
 
@@ -17,6 +17,13 @@ afterEach(async () => {
 });
 
 describe("renderSnapshot", () => {
+  it("hides fields that are not available in the snapshot", () => {
+    expect(getStatsOptions(["stars", "languages"])).toMatchObject({
+      hide: ["commits", "prs", "issues", "contribs"],
+      hide_rank: true,
+    });
+  });
+
   it("renders both cards from a public snapshot", async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "grs-render-"));
     temporaryDirectories.push(directory);
@@ -30,17 +37,8 @@ describe("renderSnapshot", () => {
         stats: {
           name: "Octocat",
           totalStars: 4,
-          totalCommits: 0,
-          totalIssues: 0,
-          totalPRs: 0,
-          totalPRsMerged: 0,
-          mergedPRsPercentage: 0,
-          totalReviews: 0,
-          totalDiscussionsStarted: 0,
-          totalDiscussionsAnswered: 0,
-          contributedTo: null,
-          rank: { level: "C", percentile: 100 },
         },
+        available_fields: ["stars", "languages"],
         languages: {
           JavaScript: {
             name: "JavaScript",
