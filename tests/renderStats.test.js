@@ -53,6 +53,12 @@ describe("renderSnapshot", () => {
     await renderSnapshot({ input, statsOutput, languagesOutput });
 
     await expect(fs.readFile(statsOutput, "utf8")).resolves.toContain("<svg");
+    await expect(fs.readFile(statsOutput, "utf8")).resolves.not.toContain(
+      "Rank: C",
+    );
+    await expect(fs.readFile(statsOutput, "utf8")).resolves.not.toContain(
+      'data-testid="rank-circle"',
+    );
     await expect(fs.readFile(languagesOutput, "utf8")).resolves.toContain(
       "<svg",
     );

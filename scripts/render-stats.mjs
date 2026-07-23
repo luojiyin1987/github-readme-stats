@@ -48,7 +48,7 @@ const LANGUAGES_OPTIONS = {
   icon_color: "0891b2",
   bg_color: "1c1917",
   locale: "en",
-  custom_title: "Top Languages",
+  custom_title: "Primary Languages (Approx.)",
 };
 
 const renderSnapshot = async ({ input, statsOutput, languagesOutput }) => {

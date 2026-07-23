@@ -32,4 +32,7 @@ It does not use `PAT_1`.
 
 `render-stats.mjs` renders `stats.svg` and `top-langs.svg` from a snapshot.
 
+The language card uses each repository's primary language and repository size.
+It is an approximate language distribution.
+
 The workflow publishes these files to the `profile-stats` branch.

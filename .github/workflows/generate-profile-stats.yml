@@ -54,7 +54,7 @@ jobs:
             "dist/meta.json",
             JSON.stringify(
               {
-                schema_version: 1,
+                schema_version: 2,
                 username: process.env.GITHUB_USERNAME,
                 generated_at: new Date().toISOString(),
                 source_commit: process.env.GITHUB_SHA,

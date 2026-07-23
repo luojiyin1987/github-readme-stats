@@ -16,6 +16,10 @@ const getRetryDelay = (response, attempt) => {
   if (Number.isFinite(retryAfter) && retryAfter > 0) {
     return retryAfter * 1000;
   }
+  const rateLimitReset = Number(response.headers.get("x-ratelimit-reset"));
+  if (Number.isFinite(rateLimitReset) && rateLimitReset > 0) {
+    return Math.max(rateLimitReset * 1000 - Date.now(), REQUEST_DELAY_MS);
+  }
   return REQUEST_DELAY_MS * 2 ** attempt;
 };
 
@@ -44,7 +48,12 @@ const fetchPublicJson = async (url, { fetchImpl = fetch, sleepImpl = sleep } = {
       return response.json();
     }
 
-    const isRetryable = response.status === 429 || response.status >= 500;
+    const isRateLimited =
+      response.status === 429 ||
+      (response.status === 403 &&
+        (response.headers.get("x-ratelimit-remaining") === "0" ||
+          response.headers.has("retry-after")));
+    const isRetryable = isRateLimited || response.status >= 500;
     if (!isRetryable || attempt === MAX_RETRIES) {
       throw new Error(`GitHub API request failed with status ${response.status}.`);
     }
@@ -102,11 +111,12 @@ const collectPublicStats = async ({
   }, {});
 
   return {
-    schema_version: 1,
+    schema_version: 2,
     generated_at: new Date().toISOString(),
     username,
     visibility_scope: "public",
     stats_scope: "public-basic",
+    languages_scope: "primary-language-weighted-by-repository-size",
     available_fields: ["stars", "languages"],
     stats: {
       name: user.name || user.login || username,

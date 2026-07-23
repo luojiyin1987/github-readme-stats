@@ -1,6 +1,9 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 
-import { collectPublicStats } from "../scripts/collect-public-stats.mjs";
+import {
+  collectPublicStats,
+  fetchPublicJson,
+} from "../scripts/collect-public-stats.mjs";
 
 const jsonResponse = (data) => ({
   ok: true,
@@ -38,8 +41,12 @@ describe("collectPublicStats", () => {
     });
 
     expect(snapshot.stats.totalStars).toBe(4);
+    expect(snapshot.schema_version).toBe(2);
     expect(snapshot.visibility_scope).toBe("public");
     expect(snapshot.available_fields).toEqual(["stars", "languages"]);
+    expect(snapshot.languages_scope).toBe(
+      "primary-language-weighted-by-repository-size",
+    );
     expect(snapshot.stats).not.toHaveProperty("totalCommits");
     expect(snapshot.stats).not.toHaveProperty("rank");
     expect(snapshot.languages.JavaScript.size).toBe(2048);
@@ -47,5 +54,23 @@ describe("collectPublicStats", () => {
     expect(
       requests.every(({ options }) => !options.headers.Authorization),
     ).toBe(true);
+  });
+
+  it("retries a rate-limited 403 response", async () => {
+    const sleepImpl = jest.fn(async () => {});
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: new Headers({ "x-ratelimit-remaining": "0" }),
+      })
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    await expect(
+      fetchPublicJson("https://api.github.com/test", { fetchImpl, sleepImpl }),
+    ).resolves.toEqual({ ok: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleepImpl).toHaveBeenCalledTimes(1);
   });
 });
